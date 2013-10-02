@@ -34,16 +34,16 @@ dur = (start,end) ->
 worker = (newjob,done,idle) ->
   myworker = () ->
     if job?
-      end = new Date()
-      incr(times,dur(job['queued'],end))
-      done(job,end)
+      job['done'] = new Date()
+      incr(times,dur(job['queued'],job['done']))
+      done(job)
       job = null
     if queue.length > 0
       paused = null
       t = sleeptime()
       job = queue.shift()
       job['started'] = new Date()
-      newjob()
+      newjob(job)
     else
       idle() unless paused?
       paused = 1
@@ -54,12 +54,12 @@ worker = (newjob,done,idle) ->
 assigner(() -> console.log "Do this one day job! Your queue is now #{queue.length} deep.")
 
 worker(
-  () ->
+  (job) ->
     console.log "Picking up a new job, and I have #{queue.length} left in the queue!"
     console.log "Average time in q: #{avg(times).toFixed(1)} days."
     console.log "Average q len: #{((1/avg(times))*avg(arrivals)/1000).toFixed(1)} jobs.",
-  (job,end) ->
-    console.log "Finished! That job took #{dur(job['started'],end)} days! It's been in the system for #{dur(job['queued'],end)} days, though.",
+  (job) ->
+    console.log "Finished! That job took #{dur(job['started'],job['done'])} days! It's been in the system for #{dur(job['queued'],job['done'])} days, though.",
   () ->
     console.log "Nothing for me to do... guess I'll take a nap."
 )
