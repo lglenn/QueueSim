@@ -108,10 +108,33 @@ avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
   avg_arrival_rate(state) * avg_system_time(state)
 
-log = (msg,color='white') ->
+log = (msg) ->
   console.log "#{dateformat now()}: #{msg}"
 
-assigner(arrival_rate,worker1,(state) -> log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
+# Graph Stuff
+
+canvas = d3.select("#viz").append('svg').attr('width',300).attr('height',300)
+
+canvas.append('rect')
+  .style('stroke','red')
+  .attr('id','qrect')
+  .attr('x',100)
+  .attr('y',100)
+  .attr('height',10)
+  .attr('width',10)
+
+growrect = (height) ->
+  d3.select('#qrect')
+    .transition()
+    .delay(0)
+    .duration(100)
+    .attr('y',parseInt(d3.select("#qrect").attr('y')) - height)
+    .attr('height',parseInt(d3.select("#qrect").attr('height')) + height)
+
+assigner(arrival_rate,worker1,
+  (state) ->
+    growrect(10)
+    log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
 
 worker(processing_rate,worker1,
   (event,state,job) ->
