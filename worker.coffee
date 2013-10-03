@@ -113,33 +113,31 @@ log = (msg) ->
 
 # Graph Stuff
 
+dispatch = d3.dispatch('enqueued','dequeued')
+
 canvas = d3.select("#viz").append('svg').attr('width',300).attr('height',300)
 
-canvas.append('rect')
+qrect = canvas.append('rect')
   .style('stroke','red')
-  .attr('id','qrect')
+  .style('fill','red')
   .attr('x',100)
   .attr('y',100)
-  .attr('height',10)
-  .attr('width',10)
+  .attr('width',80)
 
-growrect = (height) ->
-  d3.select('#qrect')
-    .transition()
-    .delay(0)
-    .duration(100)
-    .attr('y',parseInt(d3.select("#qrect").attr('y')) - height)
-    .attr('height',parseInt(d3.select("#qrect").attr('height')) + height)
+dispatch.on('enqueued',(d) -> log("D IS #{d}"); qrect.transition().delay(0).duration(400).attr('height',d * 10))
 
 assigner(arrival_rate,worker1,
   (state) ->
-    growrect(10)
+    qrect.data(state['queue'].length)
+    dispatch.enqueued(state['queue'].length)
     log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
 
 worker(processing_rate,worker1,
   (event,state,job) ->
     switch event
       when 'started'
+        qrect.data(state['queue'].length)
+        dispatch.enqueued(state['queue'].length)
         log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
         log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
         log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
