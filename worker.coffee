@@ -2,6 +2,9 @@ state = () ->
   'queue': []
   'paused': null
   'job': null
+  'sizes':
+    'count': 0
+    'total': 0
   'arrivals':
     'count': 0
     'total': 0
@@ -21,7 +24,10 @@ sleeptime = (rate) ->
   t
 
 avg = (hash) ->
-  hash['total']/hash['count']
+  if hash['count'] is 0
+    0
+  else
+    hash['total']/hash['count']
 
 incr = (hash,t) ->
   hash['count'] += 1
@@ -45,6 +51,7 @@ worker = (processing_rate,state,observer) ->
     if job?
       job['done'] = new Date()
       incr(state['system_times'],dur(job['queued'],job['done']))
+      incr(state['sizes'],dur(job['started'],job['done']))
       observer 'finished', state, job
       job = null
     if state['queue'].length > 0
@@ -64,7 +71,7 @@ worker = (processing_rate,state,observer) ->
 start_time = new Date()
 worker1 = state()
 worker2 = state()
-capacity_utilization = .9
+capacity_utilization = .8
 processing_rate = 1
 arrival_rate = processing_rate * capacity_utilization
 
@@ -92,6 +99,9 @@ queue_pct = (job) ->
 finished = (state) ->
   state['system_times']['count']
 
+avg_job_size = (state) ->
+  avg(state['sizes'])
+
 avg_queue_pct = (state) ->
   avg_queue_time(state) / avg_system_time(state) * 100
 
@@ -99,47 +109,55 @@ avg_queue_time = (state) ->
   avg(state['queue_times'])
 
 avg_system_time = (state) ->
-  a = avg(state['system_times'])
-  if a > 0
-    a
-  else
-    0
+  avg(state['system_times'])
 
 avg_arrival_rate = (state) ->
   1/(avg(state['arrivals'])/1000)
 
 avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
-  a = avg_arrival_rate(state) * avg_system_time(state)
-  if a > 0
-    a
-  else
-    0
+  avg_arrival_rate(state) * avg_system_time(state)
 
 log = (msg) ->
   console.log "#{dateformat now()}: #{msg}"
 
 # Graph Stuff
 
-colors = ['red','green','#ff8800']
-
 dispatch = d3.dispatch('update')
 
 canvas = d3.select("#viz").append('svg').attr('width',500).attr('height',500)
+  .append("g")
+  .attr("transform","translate(30,30)")
+
+colors = ['red','green','#ff8800','#0088ff']
 
 bars = canvas.selectAll('bars')
-  .data([0,0,0])
+  .data([0,0,0,0])
   .enter()
   .append('rect')
   .style('stroke',(d,i) -> colors[i])
   .style('fill',(d,i) -> colors[i])
-  .attr('x',(d,i) -> (1 + i) * 100)
+  .attr('x',(d,i) -> ((1 + i) * 80 - 50))
   .attr('y',300)
-  .attr('width',80)
+  .attr('width',50)
   .attr('height',(d) -> d)
 
+y = d3.scale.linear()
+  .domain([0, 30])
+  .range([300, 0])
+  .nice()
+
+yAxis = d3.svg.axis()
+  .scale(y)
+  .orient("left")
+  .tickFormat(d3.format(".2s"))
+
+canvas.append("g")
+  .attr("class", "y axis")
+  .call(yAxis)
+
 heights = (state,factor) ->
-  (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state)]
+  (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
 
 dispatch.on('update',
   (state) ->
@@ -149,6 +167,7 @@ dispatch.on('update',
     .delay(0)
     .duration(120)
     .attr('y',(d) -> parseInt(d3.select(this).attr('y')) + parseInt(d3.select(this).attr('height') - d))
+    .attr('y',(d) -> 300 - d)
     .attr('height',(d) -> d))
 
 assigner(arrival_rate,worker1,
@@ -162,6 +181,7 @@ worker(processing_rate,worker1,
       when 'started'
         dispatch.update(state)
         log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
+        log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
         log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
         log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
         log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%."
