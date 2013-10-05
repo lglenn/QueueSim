@@ -99,45 +99,68 @@ avg_queue_time = (state) ->
   avg(state['queue_times'])
 
 avg_system_time = (state) ->
-  avg(state['system_times'])
+  a = avg(state['system_times'])
+  if a > 0
+    a
+  else
+    0
 
 avg_arrival_rate = (state) ->
   1/(avg(state['arrivals'])/1000)
 
 avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
-  avg_arrival_rate(state) * avg_system_time(state)
+  a = avg_arrival_rate(state) * avg_system_time(state)
+  if a > 0
+    a
+  else
+    0
 
 log = (msg) ->
   console.log "#{dateformat now()}: #{msg}"
 
 # Graph Stuff
 
-dispatch = d3.dispatch('enqueued','dequeued')
+colors = ['red','green','#ff8800']
 
-canvas = d3.select("#viz").append('svg').attr('width',300).attr('height',300)
+dispatch = d3.dispatch('update')
 
-qrect = canvas.append('rect')
-  .style('stroke','red')
-  .style('fill','red')
-  .attr('x',100)
-  .attr('y',100)
+canvas = d3.select("#viz").append('svg').attr('width',500).attr('height',500)
+
+bars = canvas.selectAll('bars')
+  .data([0,0,0])
+  .enter()
+  .append('rect')
+  .style('stroke',(d,i) -> colors[i])
+  .style('fill',(d,i) -> colors[i])
+  .attr('x',(d,i) -> (1 + i) * 100)
+  .attr('y',300)
   .attr('width',80)
+  .attr('height',(d) -> d)
 
-dispatch.on('enqueued',(d) -> log("D IS #{d}"); qrect.transition().delay(0).duration(400).attr('height',d * 10))
+heights = (state,factor) ->
+  (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state)]
+
+dispatch.on('update',
+  (state) ->
+    bars
+    .data(heights(state,10))
+    .transition()
+    .delay(0)
+    .duration(120)
+    .attr('y',(d) -> parseInt(d3.select(this).attr('y')) + parseInt(d3.select(this).attr('height') - d))
+    .attr('height',(d) -> d))
 
 assigner(arrival_rate,worker1,
   (state) ->
-    qrect.data(state['queue'].length)
-    dispatch.enqueued(state['queue'].length)
+    dispatch.update(state)
     log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
 
 worker(processing_rate,worker1,
   (event,state,job) ->
     switch event
       when 'started'
-        qrect.data(state['queue'].length)
-        dispatch.enqueued(state['queue'].length)
+        dispatch.update(state)
         log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
         log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
         log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
