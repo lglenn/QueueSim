@@ -68,19 +68,6 @@ worker = (processing_rate,state,observer) ->
     setTimeout(myworker,t)
   myworker()
 
-start_time = new Date()
-worker1 = state()
-worker2 = state()
-capacity_utilization = .8
-processing_rate = 1
-arrival_rate = processing_rate * capacity_utilization
-
-now = () ->
-  runtime = new Date() - start_time
-  d = new Date()
-  d.setSeconds(d.getSeconds() + ((runtime / 1000) * 60 * 60 * 24))
-  d
-
 dateformat = (d) ->
   "#{d.toLocaleDateString()} #{d.toLocaleTimeString()}"
 
@@ -118,76 +105,107 @@ avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
   avg_arrival_rate(state) * avg_system_time(state)
 
-log = (msg) ->
-  console.log "#{dateformat now()}: #{msg}"
-
 # Graph Stuff
 
-dispatch = d3.dispatch('update')
+dispatch = d3.dispatch('params')
 
-canvas = d3.select("#viz").append('svg').attr('width',500).attr('height',500)
-  .append("g")
-  .attr("transform","translate(30,30)")
+cap = d3.select("body")
+    .append("div")
+    .append("input")
+    .on("change", () -> dispatch.params(this.value))
 
 colors = ['red','green','#ff8800','#0088ff']
 
-bars = canvas.selectAll('bars')
-  .data([0,0,0,0])
-  .enter()
-  .append('rect')
-  .style('stroke',(d,i) -> colors[i])
-  .style('fill',(d,i) -> colors[i])
-  .attr('x',(d,i) -> ((1 + i) * 80 - 50))
-  .attr('y',300)
-  .attr('width',50)
-  .attr('height',(d) -> d)
+dispatch.on('params',
+  (capacity_utilization) ->
+    start_time = new Date()
+    worker1 = state()
+    capacity_utilization = parseFloat(capacity_utilization)
+    processing_rate = 1
+    arrival_rate = processing_rate * capacity_utilization
+    
+    dis = d3.dispatch('update')
 
-y = d3.scale.linear()
-  .domain([0, 30])
-  .range([300, 0])
-  .nice()
+    now = () ->
+      runtime = new Date() - start_time
+      d = new Date()
+      d.setSeconds(d.getSeconds() + ((runtime / 1000) * 60 * 60 * 24))
+      d
+    
+    log = (msg) ->
+      console.log "#{dateformat now()}: #{msg}"
+  
+    canvas = d3.select("#viz").append('svg').attr('width',500).attr('height',400)
+      .append("g")
+      .attr("transform","translate(30,30)")
 
-yAxis = d3.svg.axis()
-  .scale(y)
-  .orient("left")
-  .tickFormat(d3.format(".2s"))
+    bars = canvas.selectAll('bars')
+      .data([0,0,0,0])
+      .enter()
+      .append('rect')
+      .style('stroke',(d,i) -> colors[i])
+      .style('fill',(d,i) -> colors[i])
+      .attr('x',(d,i) -> ((1 + i) * 80 - 50))
+      .attr('y',300)
+      .attr('width',50)
+      .attr('height',(d) -> d)
 
-canvas.append("g")
-  .attr("class", "y axis")
-  .call(yAxis)
+    canvas.selectAll("text")
+      .data([1])
+      .enter()
+      .append("svg:text")
+      .attr("x", 150)
+      .attr("y", 50)
+      .attr("text-anchor", "middle")
+      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+      .text("Cap: #{capacity_utilization}")
 
-heights = (state,factor) ->
-  (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
+    y = d3.scale.linear()
+      .domain([0, 30])
+      .range([300, 0])
+      .nice()
 
-dispatch.on('update',
-  (state) ->
-    bars
-    .data(heights(state,10))
-    .transition()
-    .delay(0)
-    .duration(120)
-    .attr('y',(d) -> parseInt(d3.select(this).attr('y')) + parseInt(d3.select(this).attr('height') - d))
-    .attr('y',(d) -> 300 - d)
-    .attr('height',(d) -> d))
+    yAxis = d3.svg.axis()
+      .scale(y)
+      .orient("left")
+      .tickFormat(d3.format(".2s"))
 
-assigner(arrival_rate,worker1,
-  (state) ->
-    dispatch.update(state)
-    log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
+    canvas.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
 
-worker(processing_rate,worker1,
-  (event,state,job) ->
-    switch event
-      when 'started'
-        dispatch.update(state)
-        log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
-        log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
-        log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
-        log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
-        log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%."
-      when 'finished'
-        log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
-      when 'idle'
-        log "Nothing for me to do... guess I'll take a nap."
-)
+    heights = (state,factor) ->
+      (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
 
+    dis.on('update',
+      (state) ->
+        bars
+        .data(heights(state,10))
+        .transition()
+        .delay(0)
+        .duration(120)
+        .attr('y',(d) -> 300 - d)
+        .attr('height',(d) -> d))
+
+
+    assigner(arrival_rate,worker1,
+      (state) ->
+        dis.update(state)
+        log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
+    
+    worker(processing_rate,worker1,
+      (event,state,job) ->
+        switch event
+          when 'started'
+            dis.update(state)
+            log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
+            log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
+            log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
+            log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
+            log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%."
+          when 'finished'
+            log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
+          when 'idle'
+            log "Nothing for me to do... guess I'll take a nap."
+    ))
+    
