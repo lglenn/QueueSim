@@ -172,6 +172,13 @@ dispatch.on('params',
     heights = (state,factor) ->
       (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
 
+    dispatch.on("newjob.#{id}",
+      (t) ->
+        worker1['queue'].push {'queued': new Date()}
+        incr(worker1['arrivals'],t)
+        local_dispatch.update(worker1)
+        log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
+
     local_dispatch.on("update",
       (state) ->
         bars
@@ -181,13 +188,6 @@ dispatch.on('params',
         .duration(120)
         .attr('y',(d) -> 300 - d)
         .attr('height',(d) -> d))
-
-    dispatch.on("newjob.#{id}",
-      (t) ->
-        worker1['queue'].push {'queued': new Date()}
-        incr(worker1['arrivals'],t)
-        local_dispatch.update(worker1)
-        log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
 
     local_dispatch.on('started',
       (state,job) ->
