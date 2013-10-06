@@ -27,7 +27,7 @@ incr = (hash,t) ->
   hash['count'] += 1
   hash['total'] += t
 
-dispatch = d3.dispatch('params','newjob','update')
+dispatch = d3.dispatch('params','newjob')
 
 assigner = (rate) ->
   myassigner = () ->
@@ -119,7 +119,8 @@ dispatch.on('params',
     capacity_utilization = parseFloat(capacity_utilization)
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
-    
+    local_dispatch = d3.dispatch('update','finished','idle')
+
     now = () ->
       runtime = new Date() - start_time
       d = new Date()
@@ -171,7 +172,7 @@ dispatch.on('params',
     heights = (state,factor) ->
       (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
 
-    dispatch.on("update.#{id}",
+    local_dispatch.on("update",
       (state) ->
         bars
         .data(heights(state,10))
@@ -185,14 +186,14 @@ dispatch.on('params',
       (t) ->
         worker1['queue'].push {'queued': new Date()}
         incr(worker1['arrivals'],t)
-        dispatch.update(worker1)
+        local_dispatch.update(worker1)
         log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
 
     worker(processing_rate,worker1,
       (event,state,job) ->
         switch event
           when 'started'
-            dispatch.update(state)
+            local_dispatch.update(state)
             log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
             log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
             log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
