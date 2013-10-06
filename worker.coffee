@@ -151,7 +151,7 @@ dispatch.on('params',
       .attr('width',barwidth)
       .attr('height',(d) -> d)
 
-    canvas.selectAll("text.yAxis")
+    canvas.selectAll("text.xaxis")
       .data([0,0,0,0])
       .enter().append("svg:text")
       .attr("x", (d,i) -> x(i) + barwidth )
@@ -163,7 +163,7 @@ dispatch.on('params',
       .attr("transform", "translate(0, 32)")
       .attr("class", "yAxis")
 
-    canvas.selectAll("title")
+    canvas.selectAll("text.title")
       .data([1])
       .enter()
       .append("svg:text")
