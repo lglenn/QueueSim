@@ -2,7 +2,7 @@ counter = () ->
   'count': 0
   'total': 0
 
-state = () ->
+newstate = () ->
   'queue': []
   'paused': null
   'job': null
@@ -113,7 +113,7 @@ assigner(1)
 dispatch.on('params',
   (capacity_utilization) ->
     start_time = new Date()
-    worker1 = state()
+    state = newstate()
     id = rand(100)
     console.log "My id is #{id}"
     capacity_utilization = parseFloat(capacity_utilization)
@@ -174,10 +174,10 @@ dispatch.on('params',
 
     dispatch.on("newjob.#{id}",
       (t) ->
-        worker1['queue'].push {'queued': new Date()}
-        incr(worker1['arrivals'],t)
-        local_dispatch.update(worker1)
-        log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
+        state['queue'].push {'queued': new Date()}
+        incr(state['arrivals'],t)
+        local_dispatch.update(state)
+        log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
 
     local_dispatch.on("update",
       (state) ->
@@ -206,4 +206,4 @@ dispatch.on('params',
       (state) ->
          log "Nothing for me to do... guess I'll take a nap." unless state['paused']?)
 
-    worker(processing_rate,worker1,local_dispatch))
+    worker(processing_rate,state,local_dispatch))
