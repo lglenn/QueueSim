@@ -16,8 +16,7 @@ rand = (rate) ->
   return r
 
 sleeptime = (rate) ->
-  t = rand(rate) * 1000
-  t
+  rand(rate) * 1000
 
 avg = (hash) ->
   if hash['count'] is 0
