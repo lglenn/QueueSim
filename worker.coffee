@@ -12,8 +12,7 @@ state = () ->
   'system_times': counter()
 
 rand = (rate) ->
-  r = Math.log(1-Math.random())/(-1 * rate)
-  return r
+  Math.log(1-Math.random())/(-1 * rate)
 
 sleeptime = (rate) ->
   rand(rate) * 1000
