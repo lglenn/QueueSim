@@ -46,7 +46,7 @@ worker = (processing_rate,state,dispatcher) ->
       job['done'] = new Date()
       incr(state['system_times'],dur(job['queued'],job['done']))
       incr(state['sizes'],dur(job['started'],job['done']))
-      dispatcher.finished(state, job)
+      dispatcher.finished(job)
       job = null
     if state['queue'].length > 0
       state['paused'] = null
@@ -54,9 +54,9 @@ worker = (processing_rate,state,dispatcher) ->
       job['started'] = new Date()
       incr(state['queue_times'],dur(job['queued'],job['started']))
       t = sleeptime(processing_rate)
-      dispatcher.started(state)
+      dispatcher.started()
     else
-      dispatcher.idle(state)
+      dispatcher.idle()
       state['paused'] = 1
       t = 0
     setTimeout(myworker,t)
@@ -176,11 +176,11 @@ dispatch.on('params',
       (t) ->
         state['queue'].push {'queued': new Date()}
         incr(state['arrivals'],t)
-        local_dispatch.update(state)
+        local_dispatch.update()
         log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
 
     local_dispatch.on("update",
-      (state) ->
+      () ->
         bars
         .data(heights(state,10))
         .transition()
@@ -190,8 +190,8 @@ dispatch.on('params',
         .attr('height',(d) -> d))
 
     local_dispatch.on('started',
-      (state,job) ->
-        local_dispatch.update(state)
+      (job) ->
+        local_dispatch.update()
         log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
         log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
         log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
@@ -199,11 +199,11 @@ dispatch.on('params',
         log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
 
     local_dispatch.on('finished',
-      (state,job) ->
+      (job) ->
         log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time.")
 
     local_dispatch.on('idle',
-      (state) ->
+      () ->
          log "Nothing for me to do... guess I'll take a nap." unless state['paused']?)
 
     worker(processing_rate,state,local_dispatch))
