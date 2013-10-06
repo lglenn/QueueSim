@@ -107,6 +107,7 @@ cap = d3.select("body")
     .on("change", () -> dispatch.params(this.value))
 
 colors = ['red','green','#ff8800','#0088ff']
+names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
 
 assigner(1)
 
@@ -120,6 +121,9 @@ dispatch.on('params',
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
     local_dispatch = d3.dispatch('update','started','finished','idle')
+    barwidth = 120
+    width = 600
+    height = 400
 
     now = () ->
       runtime = new Date() - start_time
@@ -130,9 +134,11 @@ dispatch.on('params',
     log = (msg) ->
       console.log "#{dateformat now()}: #{msg}"
   
-    canvas = d3.select("#viz").append('svg').attr('width',500).attr('height',400)
+    canvas = d3.select("#viz").append('svg').attr('width',width).attr('height',height)
       .append("g")
       .attr("transform","translate(30,30)")
+
+    x = d3.scale.linear().domain([0,4]).range([0,width])
 
     bars = canvas.selectAll('bars')
       .data([0,0,0,0])
@@ -140,17 +146,29 @@ dispatch.on('params',
       .append('rect')
       .style('stroke',(d,i) -> colors[i])
       .style('fill',(d,i) -> colors[i])
-      .attr('x',(d,i) -> ((1 + i) * 80 - 50))
+      .attr('x',(d,i) -> x(i))
       .attr('y',300)
-      .attr('width',50)
+      .attr('width',barwidth)
       .attr('height',(d) -> d)
 
-    canvas.selectAll("text")
+    canvas.selectAll("text.yAxis")
+      .data([0,0,0,0])
+      .enter().append("svg:text")
+      .attr("x", (d,i) -> x(i) + barwidth )
+      .attr("y", height - 120)
+      .attr("dx", -barwidth/2)
+      .attr("text-anchor", "middle")
+      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+      .text((d,i) -> names[i])
+      .attr("transform", "translate(0, 32)")
+      .attr("class", "yAxis")
+
+    canvas.selectAll("title")
       .data([1])
       .enter()
       .append("svg:text")
-      .attr("x", 150)
-      .attr("y", 50)
+      .attr("x", width / 2)
+      .attr("y", 20)
       .attr("text-anchor", "middle")
       .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
       .text("Capacity Utilization: #{capacity_utilization * 100}%")
