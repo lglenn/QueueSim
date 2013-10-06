@@ -39,14 +39,14 @@ assigner = (rate) ->
 dur = (start,end) ->
   (end - start) / 1000
 
-worker = (processing_rate,state,observer) ->
+worker = (processing_rate,state,dispatcher) ->
   job = null
   myworker = () ->
     if job?
       job['done'] = new Date()
       incr(state['system_times'],dur(job['queued'],job['done']))
       incr(state['sizes'],dur(job['started'],job['done']))
-      observer 'finished', state, job
+      dispatcher.finished(state, job)
       job = null
     if state['queue'].length > 0
       state['paused'] = null
@@ -54,9 +54,9 @@ worker = (processing_rate,state,observer) ->
       job['started'] = new Date()
       incr(state['queue_times'],dur(job['queued'],job['started']))
       t = sleeptime(processing_rate)
-      observer('started',state,job)
+      dispatcher.started(state)
     else
-      observer('idle',state,job) unless state['paused']?
+      dispatcher.idle(state)
       state['paused'] = 1
       t = 0
     setTimeout(myworker,t)
@@ -119,7 +119,7 @@ dispatch.on('params',
     capacity_utilization = parseFloat(capacity_utilization)
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
-    local_dispatch = d3.dispatch('update','finished','idle')
+    local_dispatch = d3.dispatch('update','started','finished','idle')
 
     now = () ->
       runtime = new Date() - start_time
@@ -189,19 +189,21 @@ dispatch.on('params',
         local_dispatch.update(worker1)
         log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
 
-    worker(processing_rate,worker1,
-      (event,state,job) ->
-        switch event
-          when 'started'
-            local_dispatch.update(state)
-            log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
-            log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
-            log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
-            log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
-            log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%."
-          when 'finished'
-            log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
-          when 'idle'
-            log "Nothing for me to do... guess I'll take a nap."
-    ))
-    
+    local_dispatch.on('started',
+      (state,job) ->
+        local_dispatch.update(state)
+        log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
+        log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
+        log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
+        log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
+        log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
+
+    local_dispatch.on('finished',
+      (state,job) ->
+        log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time.")
+
+    local_dispatch.on('idle',
+      (state) ->
+         log "Nothing for me to do... guess I'll take a nap." unless state['paused']?)
+
+    worker(processing_rate,worker1,local_dispatch))
