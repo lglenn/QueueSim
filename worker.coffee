@@ -33,17 +33,7 @@ incr = (hash,t) ->
   hash['count'] += 1
   hash['total'] += t
 
-dispatch = d3.dispatch('params','newjob')
-
-xassigner = (rate,state,cb) ->
-  myassigner = () ->
-    state['queue'].push {'queued': new Date()}
-    incr(state['arrivals'],t)
-    cb(state)
-    t = sleeptime(rate)
-    incr(state['arrivals'],t)
-    setTimeout(myassigner,t)
-  myassigner()
+dispatch = d3.dispatch('params','newjob','update')
 
 assigner = (rate) ->
   myassigner = () ->
@@ -51,7 +41,6 @@ assigner = (rate) ->
     dispatch.newjob(t)
     setTimeout(myassigner,t)
   myassigner()
-
 
 dur = (start,end) ->
   (end - start) / 1000
@@ -137,8 +126,6 @@ dispatch.on('params',
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
     
-    dis = d3.dispatch('update')
-
     now = () ->
       runtime = new Date() - start_time
       d = new Date()
@@ -190,7 +177,7 @@ dispatch.on('params',
     heights = (state,factor) ->
       (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
 
-    dis.on('update',
+    dispatch.on("update.#{id}",
       (state) ->
         bars
         .data(heights(state,10))
@@ -204,14 +191,14 @@ dispatch.on('params',
       (t) ->
         worker1['queue'].push {'queued': new Date()}
         incr(worker1['arrivals'],t)
-        dis.update(worker1)
+        dispatch.update(worker1)
         log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
 
     worker(processing_rate,worker1,
       (event,state,job) ->
         switch event
           when 'started'
-            dis.update(state)
+            dispatch.update(state)
             log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
             log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
             log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
