@@ -153,7 +153,7 @@ dispatch.on('params',
       .attr("y", 50)
       .attr("text-anchor", "middle")
       .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-      .text("Cap: #{capacity_utilization}")
+      .text("Capacity Utilization: #{capacity_utilization * 100}%")
 
     y = d3.scale.linear()
       .domain([0, 30])
