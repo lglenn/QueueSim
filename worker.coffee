@@ -33,14 +33,25 @@ incr = (hash,t) ->
   hash['count'] += 1
   hash['total'] += t
 
-assigner = (rate,state,cb) ->
+dispatch = d3.dispatch('params','newjob')
+
+xassigner = (rate,state,cb) ->
   myassigner = () ->
     state['queue'].push {'queued': new Date()}
+    incr(state['arrivals'],t)
     cb(state)
     t = sleeptime(rate)
     incr(state['arrivals'],t)
     setTimeout(myassigner,t)
   myassigner()
+
+assigner = (rate) ->
+  myassigner = () ->
+    t = sleeptime(rate)
+    dispatch.newjob(t)
+    setTimeout(myassigner,t)
+  myassigner()
+
 
 dur = (start,end) ->
   (end - start) / 1000
@@ -107,8 +118,6 @@ avg_system_size = (state) ->
 
 # Graph Stuff
 
-dispatch = d3.dispatch('params')
-
 cap = d3.select("body")
     .append("div")
     .append("input")
@@ -116,13 +125,17 @@ cap = d3.select("body")
 
 colors = ['red','green','#ff8800','#0088ff']
 
+assigner(1)
+
 dispatch.on('params',
   (capacity_utilization) ->
     start_time = new Date()
     worker1 = state()
+    id = rand(100)
+    console.log "My id is #{id}"
     capacity_utilization = parseFloat(capacity_utilization)
-    processing_rate = 1
-    arrival_rate = processing_rate * capacity_utilization
+    arrival_rate = 1
+    processing_rate = arrival_rate / capacity_utilization
     
     dis = d3.dispatch('update')
 
@@ -187,12 +200,13 @@ dispatch.on('params',
         .attr('y',(d) -> 300 - d)
         .attr('height',(d) -> d))
 
+    dispatch.on("newjob.#{id}",
+      (t) ->
+        worker1['queue'].push {'queued': new Date()}
+        incr(worker1['arrivals'],t)
+        dis.update(worker1)
+        log "Do this one day job! Your queue is now #{worker1['queue'].length} deep.", 'red')
 
-    assigner(arrival_rate,worker1,
-      (state) ->
-        dis.update(state)
-        log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
-    
     worker(processing_rate,worker1,
       (event,state,job) ->
         switch event
