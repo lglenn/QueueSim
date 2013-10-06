@@ -1,19 +1,15 @@
+counter = () ->
+  'count': 0
+  'total': 0
+
 state = () ->
   'queue': []
   'paused': null
   'job': null
-  'sizes':
-    'count': 0
-    'total': 0
-  'arrivals':
-    'count': 0
-    'total': 0
-  'queue_times':
-    'count': 0
-    'total': 0
-  'system_times':
-    'count': 0
-    'total': 0
+  'sizes': counter()
+  'arrivals': counter()
+  'queue_times': counter()
+  'system_times': counter()
 
 rand = (rate) ->
   r = Math.log(1-Math.random())/(-1 * rate)
