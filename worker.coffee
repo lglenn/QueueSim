@@ -108,6 +108,12 @@ cap = d3.select("body")
 
 colors = ['red','green','#ff8800','#0088ff']
 names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
+legends = [
+  (d) -> "Last job lead time: #{d.toFixed(1)} days"
+  (d) -> "% queue time: #{d.toFixed(0)}%"
+  (d) -> "Avg % queue time: #{d.toFixed(0)}%"
+  (d) -> "Jobs completed: #{d}"
+]
 
 assigner(1)
 
@@ -122,7 +128,8 @@ dispatch.on('params',
     processing_rate = arrival_rate / capacity_utilization
     local_dispatch = d3.dispatch('update','started','finished','idle')
     barwidth = 120
-    width = 600
+    width = 900
+    graph_width = 600
     height = 400
 
     now = () ->
@@ -138,7 +145,7 @@ dispatch.on('params',
       .append("g")
       .attr("transform","translate(30,30)")
 
-    x = d3.scale.linear().domain([0,4]).range([0,width])
+    x = d3.scale.linear().domain([0,4]).range([0,graph_width])
 
     bars = canvas.selectAll('bars')
       .data([0,0,0,0])
@@ -150,6 +157,15 @@ dispatch.on('params',
       .attr('y',300)
       .attr('width',barwidth)
       .attr('height',(d) -> d)
+
+    legend = canvas.selectAll("text.legend")
+      .data([0,0,0,0])
+      .enter().append("svg:text")
+      .attr('x',graph_width + 40)
+      .attr('y',(d,i) -> 100 + (i*30))
+      .attr("text-anchor", "left")
+      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+      .text((d,i) -> legends[i](d))
 
     canvas.selectAll("text.xaxis")
       .data([0,0,0,0])
@@ -218,7 +234,15 @@ dispatch.on('params',
 
     local_dispatch.on('finished',
       (job) ->
-        log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time.")
+        log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
+        local_dispatch.update()
+        legend.data([
+          system_time(job)
+          (queue_time(job)/system_time(job) * 100)
+          avg_queue_pct(state)
+          finished(state)
+        ])
+          .text((d,i) -> legends[i](d)))
 
     local_dispatch.on('idle',
       () ->
