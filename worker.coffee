@@ -11,6 +11,7 @@ newstate = () ->
   'queue_times': counter()
   'system_times': counter()
 
+# Generates values from the exponential distribution with rate `rate`
 rand = (rate) ->
   Math.log(1-Math.random())/(-1 * rate)
 
@@ -27,43 +28,8 @@ incr = (hash,t) ->
   hash['count'] += 1
   hash['total'] += t
 
-dispatch = d3.dispatch('params','newjob')
-
-assigner = (rate) ->
-  myassigner = () ->
-    t = sleeptime(rate)
-    dispatch.newjob(t)
-    setTimeout(myassigner,t)
-  myassigner()
-
 dur = (start,end) ->
   (end - start) / 1000
-
-worker = (processing_rate,state,dispatcher) ->
-  job = null
-  myworker = () ->
-    if job?
-      job['done'] = new Date()
-      incr(state['system_times'],dur(job['queued'],job['done']))
-      incr(state['sizes'],dur(job['started'],job['done']))
-      dispatcher.finished(job)
-      job = null
-    if state['queue'].length > 0
-      state['paused'] = null
-      job = state['queue'].shift()
-      job['started'] = new Date()
-      incr(state['queue_times'],dur(job['queued'],job['started']))
-      t = sleeptime(processing_rate)
-      dispatcher.started()
-    else
-      dispatcher.idle()
-      state['paused'] = 1
-      t = 0
-    setTimeout(myworker,t)
-  myworker()
-
-dateformat = (d) ->
-  "#{d.toLocaleDateString()} #{d.toLocaleTimeString()}"
 
 system_time = (job) ->
   dur(job['queued'],job['done'])
@@ -99,6 +65,39 @@ avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
   avg_arrival_rate(state) * avg_system_time(state)
 
+dispatch = d3.dispatch('params','newjob')
+
+# Assign work at a given rate
+assigner = (rate) ->
+  myassigner = () ->
+    t = sleeptime(rate)
+    dispatch.newjob(t)
+    setTimeout(myassigner,t)
+  myassigner()
+
+worker = (processing_rate,state,dispatcher) ->
+  job = null
+  myworker = () ->
+    if job?
+      job['done'] = new Date()
+      incr(state['system_times'],dur(job['queued'],job['done']))
+      incr(state['sizes'],dur(job['started'],job['done']))
+      dispatcher.finished(state,job)
+      job = null
+    if state['queue'].length > 0
+      state['paused'] = null
+      job = state['queue'].shift()
+      job['started'] = new Date()
+      incr(state['queue_times'],dur(job['queued'],job['started']))
+      t = sleeptime(processing_rate)
+      dispatcher.started()
+    else
+      dispatcher.idle()
+      state['paused'] = 1
+      t = 0
+    setTimeout(myworker,t)
+  myworker()
+
 # Graph Stuff
 
 cap = d3.select("body")
@@ -106,15 +105,31 @@ cap = d3.select("body")
     .append("input")
     .on("change", () -> dispatch.params(this.value))
 
-colors = ['red','green','#ff8800','#0088ff']
-names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
-legends = [
-  (d) -> "Last job lead time: #{d.toFixed(1)} days"
-  (d) -> "% queue time: #{d.toFixed(0)}%"
-  (d) -> "Avg % queue time: #{d.toFixed(0)}%"
-  (d) -> "Jobs completed: #{d}"
-]
-
+legend = (svg,x_pos,dispatcher) ->
+  legends = [
+    (d) -> "Last job lead time: #{d.toFixed(1)} days"
+    (d) -> "% queue time: #{d.toFixed(0)}%"
+    (d) -> "Avg % queue time: #{d.toFixed(0)}%"
+    (d) -> "Jobs completed: #{d}"
+  ]
+  l = svg.selectAll("text.legend")
+    .data([0,0,0,0])
+    .enter().append("svg:text")
+    .attr('x',x_pos + 40)
+    .attr('y',(d,i) -> 100 + (i*30))
+    .attr("text-anchor", "left")
+    .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+    .text((d,i) -> legends[i](d))
+  dispatcher.on('finished.legend',
+    (state,job) ->
+      l.data([
+        system_time(job)
+        (queue_time(job)/system_time(job) * 100)
+        avg_queue_pct(state)
+        finished(state)
+      ])
+      .text((d,i) -> legends[i](d)))
+  
 assigner(1)
 
 dispatch.on('params',
@@ -125,38 +140,21 @@ dispatch.on('params',
     capacity_utilization = parseFloat(capacity_utilization)
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
-    local_dispatch = d3.dispatch('update','started','finished','idle')
-    barwidth = 120
     width = 900
     graph_width = 600
-    legend_width=300
+    graph_height = 300
+    legend_width = 300
     height = 400
 
-    legend = (svg,dispatcher) ->
-      l = svg.selectAll("text.legend")
-        .data([0,0,0,0])
-        .enter().append("svg:text")
-        .attr('x',graph_width + 40)
-        .attr('y',(d,i) -> 100 + (i*30))
-        .attr("text-anchor", "left")
-        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-        .text((d,i) -> legends[i](d))
-      dispatcher.on('finished.legend',
-        (job) ->
-          l.data([
-            system_time(job)
-            (queue_time(job)/system_time(job) * 100)
-            avg_queue_pct(state)
-            finished(state)
-          ])
-          .text((d,i) -> legends[i](d)))
-      
     now = () ->
       runtime = new Date() - start_time
       d = new Date()
       d.setSeconds(d.getSeconds() + ((runtime / 1000) * 60 * 60 * 24))
       d
     
+    dateformat = (d) ->
+      "#{d.toLocaleDateString()} #{d.toLocaleTimeString()}"
+
     log = (msg) ->
       console.log "#{dateformat now()}: #{msg}"
   
@@ -164,20 +162,26 @@ dispatch.on('params',
       .append("g")
       .attr("transform","translate(30,30)")
 
-    legend(canvas,local_dispatch)
+    local_dispatch = d3.dispatch('update','started','finished','idle')
+
+    legend(canvas,graph_width,local_dispatch)
+
+    barwidth = 120
+    names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
+    colors = ['red','green','#ff8800','#0088ff']
 
     x = d3.scale.linear().domain([0,4]).range([0,graph_width])
+    y = d3.scale.linear().domain([0, 30]).range([graph_height, 0]).nice()
 
-    bars = canvas.selectAll('bars')
-      .data([0,0,0,0])
+    canvas.selectAll("text.title")
+      .data([1])
       .enter()
-      .append('rect')
-      .style('stroke',(d,i) -> colors[i])
-      .style('fill',(d,i) -> colors[i])
-      .attr('x',(d,i) -> x(i))
-      .attr('y',300)
-      .attr('width',barwidth)
-      .attr('height',(d) -> d)
+      .append("svg:text")
+      .attr("x", width / 2)
+      .attr("y", 20)
+      .attr("text-anchor", "middle")
+      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+      .text("Capacity Utilization: #{capacity_utilization * 100}%")
 
     canvas.selectAll("text.xaxis")
       .data([0,0,0,0])
@@ -191,21 +195,6 @@ dispatch.on('params',
       .attr("transform", "translate(0, 32)")
       .attr("class", "yAxis")
 
-    canvas.selectAll("text.title")
-      .data([1])
-      .enter()
-      .append("svg:text")
-      .attr("x", width / 2)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-      .text("Capacity Utilization: #{capacity_utilization * 100}%")
-
-    y = d3.scale.linear()
-      .domain([0, 30])
-      .range([300, 0])
-      .nice()
-
     yAxis = d3.svg.axis()
       .scale(y)
       .orient("left")
@@ -215,18 +204,16 @@ dispatch.on('params',
       .attr("class", "y axis")
       .call(yAxis)
 
-    local_dispatch.on('update',
-      () ->
-        bars
-        .data(heights(state,10))
-        .transition()
-        .delay(0)
-        .duration(120)
-        .attr('y',(d) -> 300 - d)
-        .attr('height',(d) -> d))
-
-    heights = (state,factor) ->
-      (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
+    bars = canvas.selectAll('bars')
+      .data([0,0,0,0])
+      .enter()
+      .append('rect')
+      .style('stroke',(d,i) -> colors[i])
+      .style('fill',(d,i) -> colors[i])
+      .attr('x',(d,i) -> x(i))
+      .attr('y',graph_height)
+      .attr('width',barwidth)
+      .attr('height',(d) -> d)
 
     dispatch.on("newjob.#{id}",
       (t) ->
@@ -234,6 +221,22 @@ dispatch.on('params',
         incr(state['arrivals'],t)
         local_dispatch.update()
         log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
+
+    local_dispatch.on('update',
+      () ->
+        heights = () ->
+          graph_height - y(n) for n in [
+            state['queue'].length
+            avg_system_size(state)
+            avg_system_time(state)
+            avg_job_size(state)
+          ]
+        bars.data(heights)
+        .transition()
+        .delay(0)
+        .duration(120)
+        .attr('y',(d) -> graph_height - d)
+        .attr('height',(d) -> d))
 
     local_dispatch.on('started',
       (job) ->
@@ -245,7 +248,7 @@ dispatch.on('params',
         log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
 
     local_dispatch.on('finished',
-      (job) ->
+      (state,job) ->
         log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
         local_dispatch.update())
 
