@@ -75,6 +75,7 @@ assigner = (rate) ->
     setTimeout(myassigner,t)
   myassigner()
 
+# Work at a given rate
 worker = (processing_rate,state,dispatcher) ->
   job = null
   myworker = () ->
@@ -97,8 +98,6 @@ worker = (processing_rate,state,dispatcher) ->
       t = 0
     setTimeout(myworker,t)
   myworker()
-
-# Graph Stuff
 
 cap = d3.select("body")
     .append("div")
@@ -132,6 +131,86 @@ legend = (svg,x_pos,dispatcher) ->
   
 assigner(1)
 
+barchart = (canvas,width,height,dispatch) ->
+  barwidth = 120
+  names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
+  colors = ['red','green','#ff8800','#0088ff']
+
+  x = d3.scale.linear().domain([0,4]).range([0,width])
+  y = d3.scale.linear().domain([0, 30]).range([height, 0]).nice()
+
+  canvas.selectAll("text.xaxis")
+    .data([0,0,0,0])
+    .enter().append("svg:text")
+    .attr("x", (d,i) -> x(i) + barwidth )
+    .attr("y", height - 15)
+    .attr("dx", -barwidth/2)
+    .attr("text-anchor", "middle")
+    .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+    .text((d,i) -> names[i])
+    .attr("transform", "translate(0, 32)")
+    .attr("class", "yAxis")
+
+  yaxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickFormat(d3.format(".2s"))
+
+  xaxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickSize(0)
+    .tickFormat("")
+
+  canvas.append("g")
+    .attr("class", "y axis")
+    .call(yaxis)
+
+  bars = canvas.selectAll('bars')
+    .data([0,0,0,0])
+    .enter()
+    .append('rect')
+    .style('stroke',(d,i) -> colors[i])
+    .style('fill',(d,i) -> colors[i])
+    .attr('x',(d,i) -> x(i))
+    .attr('y',height)
+    .attr('width',barwidth)
+    .attr('height',(d) -> d)
+
+  canvas.append("g")
+    .attr("class", "x axis")
+    .attr("width",width)
+    .attr('height',100)
+    .attr('transform',"translate(0,#{height})")
+    .call(xaxis)
+
+  dispatch.on('update.barchart',
+    (state) ->
+      heights = () ->
+        height - y(n) for n in [
+          state['queue'].length
+          avg_system_size(state)
+          avg_system_time(state)
+          avg_job_size(state)
+        ]
+      bars.data(heights)
+      .transition()
+      .delay(0)
+      .duration(120)
+      .attr('y',(d) -> height - d)
+      .attr('height',(d) -> d))
+
+title = (canvas,x,y,text) ->
+  canvas.selectAll("text.title")
+    .data([1])
+    .enter()
+    .append("svg:text")
+    .attr("x", x)
+    .attr("y", y)
+    .attr("text-anchor", "middle")
+    .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+    .text(text)
+
 dispatch.on('params',
   (capacity_utilization) ->
     start_time = new Date()
@@ -164,96 +243,33 @@ dispatch.on('params',
 
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
+    title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
     legend(canvas,graph_width,local_dispatch)
+    barchart(canvas,graph_width,graph_height,local_dispatch)
 
-    barwidth = 120
-    names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
-    colors = ['red','green','#ff8800','#0088ff']
-
-    x = d3.scale.linear().domain([0,4]).range([0,graph_width])
-    y = d3.scale.linear().domain([0, 30]).range([graph_height, 0]).nice()
-
-    canvas.selectAll("text.title")
-      .data([1])
-      .enter()
-      .append("svg:text")
-      .attr("x", width / 2)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-      .text("Capacity Utilization: #{capacity_utilization * 100}%")
-
-    canvas.selectAll("text.xaxis")
-      .data([0,0,0,0])
-      .enter().append("svg:text")
-      .attr("x", (d,i) -> x(i) + barwidth )
-      .attr("y", height - 120)
-      .attr("dx", -barwidth/2)
-      .attr("text-anchor", "middle")
-      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-      .text((d,i) -> names[i])
-      .attr("transform", "translate(0, 32)")
-      .attr("class", "yAxis")
-
-    yAxis = d3.svg.axis()
-      .scale(y)
-      .orient("left")
-      .tickFormat(d3.format(".2s"))
-
-    canvas.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-
-    bars = canvas.selectAll('bars')
-      .data([0,0,0,0])
-      .enter()
-      .append('rect')
-      .style('stroke',(d,i) -> colors[i])
-      .style('fill',(d,i) -> colors[i])
-      .attr('x',(d,i) -> x(i))
-      .attr('y',graph_height)
-      .attr('width',barwidth)
-      .attr('height',(d) -> d)
+    worker(processing_rate,state,local_dispatch)
 
     dispatch.on("newjob.#{id}",
       (t) ->
         state['queue'].push {'queued': new Date()}
         incr(state['arrivals'],t)
-        local_dispatch.update()
+        local_dispatch.update(state)
         log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
-
-    local_dispatch.on('update',
-      () ->
-        heights = () ->
-          graph_height - y(n) for n in [
-            state['queue'].length
-            avg_system_size(state)
-            avg_system_time(state)
-            avg_job_size(state)
-          ]
-        bars.data(heights)
-        .transition()
-        .delay(0)
-        .duration(120)
-        .attr('y',(d) -> graph_height - d)
-        .attr('height',(d) -> d))
-
+  
     local_dispatch.on('started',
       (job) ->
-        local_dispatch.update()
+        local_dispatch.update(state)
         log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
         log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
         log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
         log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
         log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
-
+  
     local_dispatch.on('finished',
       (state,job) ->
         log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
-        local_dispatch.update())
-
+        local_dispatch.update(state))
+  
     local_dispatch.on('idle',
       () ->
-         log "Nothing for me to do... guess I'll take a nap." unless state['paused']?)
-
-    worker(processing_rate,state,local_dispatch))
+         log "Nothing for me to do... guess I'll take a nap." unless state['paused']?))
