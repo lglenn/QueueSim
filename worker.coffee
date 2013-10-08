@@ -75,15 +75,16 @@ avg_system_size = (state) ->
 dispatch = d3.dispatch('params','newjob')
 
 # Assign work at a given rate
-assigner = (rate) ->
+assigner = (arrival_rate,processing_rate) ->
   myassigner = () ->
-    t = sleeptime(rate)
-    dispatch.newjob(t)
+    t = sleeptime(arrival_rate)
+    size = sleeptime(processing_rate)
+    dispatch.newjob(t,size)
     setTimeout(myassigner,t)
   myassigner()
 
 # Work at a given rate
-worker = (processing_rate,state,dispatcher) ->
+worker = (capacity_utilization,state,dispatcher) ->
   job = null
   myworker = () ->
     if job?
@@ -97,7 +98,7 @@ worker = (processing_rate,state,dispatcher) ->
       job = state['queue'].shift()
       job['started'] = new Date()
       incr(state['queue_times'],dur(job['queued'],job['started']))
-      t = sleeptime(processing_rate)
+      t = job['size'] * (1 / capacity_utilization)
       dispatcher.started()
     else
       dispatcher.idle()
@@ -135,12 +136,12 @@ legend = (svg,x_pos,dispatcher) ->
         (queue_time(job)/system_time(job) * 100)
         avg_queue_pct(state)
         finished(state)
-        avg_system_time(state) * finished(state) * 1000
+        avg_system_time(state) * finished(state) * 100
         dur(state['start_time'],now(state)) / 60 / 60 / 24
       ])
       .text((d,i) -> legends[i](d)))
   
-assigner(1)
+assigner(1,1)
 
 barchart = (canvas,width,height,dispatch) ->
   barwidth = 120
@@ -254,9 +255,9 @@ dispatch.on('params',
     worker(processing_rate,state,local_dispatch)
 
     dispatch.on("newjob.#{id}",
-      (t) ->
-        state['queue'].push {'queued': new Date()}
-        incr(state['arrivals'],t)
+      (arrival,process) ->
+        state['queue'].push {'queued': new Date(), 'size': process}
+        incr(state['arrivals'],arrival)
         local_dispatch.update(state)
         log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
   
