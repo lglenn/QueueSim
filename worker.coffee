@@ -3,6 +3,7 @@ counter = () ->
   'total': 0
 
 newstate = () ->
+  'start_time': new Date()
   'queue': []
   'paused': null
   'job': null
@@ -10,6 +11,12 @@ newstate = () ->
   'arrivals': counter()
   'queue_times': counter()
   'system_times': counter()
+
+now = (state) ->
+  runtime = new Date() - state['start_time']
+  d = new Date()
+  d.setSeconds(d.getSeconds() + ((runtime / 1000) * 60 * 60 * 24))
+  d
 
 # Generates values from the exponential distribution with rate `rate`
 rand = (rate) ->
@@ -110,9 +117,11 @@ legend = (svg,x_pos,dispatcher) ->
     (d) -> "% queue time: #{d.toFixed(0)}%"
     (d) -> "Avg % queue time: #{d.toFixed(0)}%"
     (d) -> "Jobs completed: #{d}"
+    (d) -> "Total Cost of Delay: $#{d.toFixed(0)}"
+    (d) -> "Elapsed time: #{d.toFixed(1)} days"
   ]
   l = svg.selectAll("text.legend")
-    .data([0,0,0,0])
+    .data(0 for n in legends)
     .enter().append("svg:text")
     .attr('x',x_pos + 40)
     .attr('y',(d,i) -> 100 + (i*30))
@@ -126,6 +135,8 @@ legend = (svg,x_pos,dispatcher) ->
         (queue_time(job)/system_time(job) * 100)
         avg_queue_pct(state)
         finished(state)
+        avg_system_time(state) * finished(state) * 1000
+        dur(state['start_time'],now(state)) / 60 / 60 / 24
       ])
       .text((d,i) -> legends[i](d)))
   
@@ -213,7 +224,6 @@ title = (canvas,x,y,text) ->
 
 dispatch.on('params',
   (capacity_utilization) ->
-    start_time = new Date()
     state = newstate()
     id = rand(100)
     capacity_utilization = parseFloat(capacity_utilization)
@@ -225,17 +235,11 @@ dispatch.on('params',
     legend_width = 300
     height = 400
 
-    now = () ->
-      runtime = new Date() - start_time
-      d = new Date()
-      d.setSeconds(d.getSeconds() + ((runtime / 1000) * 60 * 60 * 24))
-      d
-    
     dateformat = (d) ->
       "#{d.toLocaleDateString()} #{d.toLocaleTimeString()}"
 
     log = (msg) ->
-      console.log "#{dateformat now()}: #{msg}"
+      console.log "#{dateformat now(state)}: #{msg}"
   
     canvas = d3.select("#viz").append('svg').attr('width',width).attr('height',height)
       .append("g")
