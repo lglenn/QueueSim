@@ -122,7 +122,6 @@ dispatch.on('params',
     start_time = new Date()
     state = newstate()
     id = rand(100)
-    console.log "My id is #{id}"
     capacity_utilization = parseFloat(capacity_utilization)
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
@@ -130,8 +129,28 @@ dispatch.on('params',
     barwidth = 120
     width = 900
     graph_width = 600
+    legend_width=300
     height = 400
 
+    legend = (svg,dispatcher) ->
+      l = svg.selectAll("text.legend")
+        .data([0,0,0,0])
+        .enter().append("svg:text")
+        .attr('x',graph_width + 40)
+        .attr('y',(d,i) -> 100 + (i*30))
+        .attr("text-anchor", "left")
+        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+        .text((d,i) -> legends[i](d))
+      dispatcher.on('finished.legend',
+        (job) ->
+          l.data([
+            system_time(job)
+            (queue_time(job)/system_time(job) * 100)
+            avg_queue_pct(state)
+            finished(state)
+          ])
+          .text((d,i) -> legends[i](d)))
+      
     now = () ->
       runtime = new Date() - start_time
       d = new Date()
@@ -145,6 +164,8 @@ dispatch.on('params',
       .append("g")
       .attr("transform","translate(30,30)")
 
+    legend(canvas,local_dispatch)
+
     x = d3.scale.linear().domain([0,4]).range([0,graph_width])
 
     bars = canvas.selectAll('bars')
@@ -157,15 +178,6 @@ dispatch.on('params',
       .attr('y',300)
       .attr('width',barwidth)
       .attr('height',(d) -> d)
-
-    legend = canvas.selectAll("text.legend")
-      .data([0,0,0,0])
-      .enter().append("svg:text")
-      .attr('x',graph_width + 40)
-      .attr('y',(d,i) -> 100 + (i*30))
-      .attr("text-anchor", "left")
-      .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-      .text((d,i) -> legends[i](d))
 
     canvas.selectAll("text.xaxis")
       .data([0,0,0,0])
@@ -203,6 +215,16 @@ dispatch.on('params',
       .attr("class", "y axis")
       .call(yAxis)
 
+    local_dispatch.on('update',
+      () ->
+        bars
+        .data(heights(state,10))
+        .transition()
+        .delay(0)
+        .duration(120)
+        .attr('y',(d) -> 300 - d)
+        .attr('height',(d) -> d))
+
     heights = (state,factor) ->
       (Math.round(x) * factor) for x in [state['queue'].length,avg_system_size(state),avg_system_time(state),avg_job_size(state)]
 
@@ -212,16 +234,6 @@ dispatch.on('params',
         incr(state['arrivals'],t)
         local_dispatch.update()
         log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
-
-    local_dispatch.on("update",
-      () ->
-        bars
-        .data(heights(state,10))
-        .transition()
-        .delay(0)
-        .duration(120)
-        .attr('y',(d) -> 300 - d)
-        .attr('height',(d) -> d))
 
     local_dispatch.on('started',
       (job) ->
@@ -235,14 +247,7 @@ dispatch.on('params',
     local_dispatch.on('finished',
       (job) ->
         log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
-        local_dispatch.update()
-        legend.data([
-          system_time(job)
-          (queue_time(job)/system_time(job) * 100)
-          avg_queue_pct(state)
-          finished(state)
-        ])
-          .text((d,i) -> legends[i](d)))
+        local_dispatch.update())
 
     local_dispatch.on('idle',
       () ->
