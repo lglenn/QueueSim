@@ -112,7 +112,7 @@ cap = d3.select("body")
     .append("input")
     .on("change", () -> dispatch.params(this.value))
 
-legend = (svg,x_pos,dispatcher) ->
+legend = (svg,height,width,dispatcher) ->
   legends = [
     (d) -> "Last job lead time: #{d.toFixed(1)} days"
     (d) -> "% queue time: #{d.toFixed(0)}%"
@@ -121,10 +121,13 @@ legend = (svg,x_pos,dispatcher) ->
     (d) -> "Total Cost of Delay: $#{d.toFixed(0)}"
     (d) -> "Elapsed time: #{d.toFixed(1)} days"
   ]
-  l = svg.selectAll("text.legend")
+  canvas = svg.append("g")
+    .attr('height',height)
+    .attr('width',width)
+    .attr('transform','translate(1350,0)')
+  l = canvas.selectAll("text.legend")
     .data(0 for n in legends)
     .enter().append("svg:text")
-    .attr('x',x_pos + 40)
     .attr('y',(d,i) -> 100 + (i*30))
     .attr("text-anchor", "left")
     .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
@@ -142,6 +145,57 @@ legend = (svg,x_pos,dispatcher) ->
       .text((d,i) -> legends[i](d)))
   
 assigner(1,1)
+
+scatterchart = (svg,width,height,dispatch) ->
+  x = d3.scale.linear().domain([0,30]).range([0,width])
+  y = d3.scale.linear().domain([0, 1]).range([height, 0]).nice()
+  c = d3.scale.linear().domain([0,8]).range([0,40]).nice()
+
+  yaxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickFormat(d3.format("2s"))
+
+  xaxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom")
+    .tickSize(0)
+    .tickFormat(d3.format("2s"))
+
+  canvas = svg.append("g")
+    .attr('height',height)
+    .attr('width',width)
+    .attr('transform','translate(675,0)')
+
+  canvas.append("g")
+    .attr("class", "y axis")
+    .call(yaxis)
+
+  canvas.append("g")
+    .attr("class", "x axis")
+    .attr("width",width)
+    .attr('height',100)
+    .attr('transform',"translate(0,#{height})")
+    .call(xaxis)
+
+  dispatch.on('finished.scatterchart',
+    (state,job) ->
+      console.log("PT: #{process_time(job)}")
+      console.log("X: #{queue_pct(job)/100}")
+      console.log("Y: #{system_time(job)}")
+      canvas.append('circle')
+        .transition()
+        .delay(0)
+        .duration(120)
+        .attr('r',c(process_time(job)))
+        .attr('cy',y(queue_pct(job)/100))
+        .attr('cx',x(system_time(job)))
+        .style('fill','#ff4444')
+        .style('opacity',0.5)
+        .style('stroke','black'))
+
+###
+###
 
 barchart = (canvas,width,height,dispatch) ->
   barwidth = 120
@@ -230,7 +284,7 @@ dispatch.on('params',
     capacity_utilization = parseFloat(capacity_utilization)
     arrival_rate = 1
     processing_rate = arrival_rate / capacity_utilization
-    width = 900
+    width = 2000
     graph_width = 600
     graph_height = 300
     legend_width = 300
@@ -249,8 +303,9 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
-    legend(canvas,graph_width,local_dispatch)
+    legend(canvas,graph_height,graph_width/2,local_dispatch)
     barchart(canvas,graph_width,graph_height,local_dispatch)
+    scatterchart(canvas,graph_width,graph_height,local_dispatch)
 
     worker(processing_rate,state,local_dispatch)
 
