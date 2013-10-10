@@ -180,23 +180,17 @@ scatterchart = (svg,width,height,dispatch) ->
 
   dispatch.on('finished.scatterchart',
     (state,job) ->
-      console.log("PT: #{process_time(job)}")
-      console.log("X: #{queue_pct(job)/100}")
-      console.log("Y: #{system_time(job)}")
       canvas.append('circle')
         .attr('r',0)
-        .transition()
-        .delay(0)
-        .duration(120)
-        .attr('r',c(process_time(job)))
         .attr('cy',y(queue_pct(job)/100))
         .attr('cx',x(system_time(job)))
         .style('fill','#ff4444')
         .style('opacity',0.5)
-        .style('stroke','black'))
-
-###
-###
+        .style('stroke','black')
+        .transition()
+        .delay(0)
+        .duration(120)
+        .attr('r',c(process_time(job))))
 
 barchart = (canvas,width,height,dispatch) ->
   barwidth = 120
