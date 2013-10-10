@@ -184,6 +184,7 @@ scatterchart = (svg,width,height,dispatch) ->
       console.log("X: #{queue_pct(job)/100}")
       console.log("Y: #{system_time(job)}")
       canvas.append('circle')
+        .attr('r',0)
         .transition()
         .delay(0)
         .duration(120)
