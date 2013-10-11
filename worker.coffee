@@ -113,10 +113,9 @@ cap = d3.select("body")
     .on("change", () -> dispatch.params(this.value))
 
 legend = () ->
-  attrs =
-    height: 0
-    width: 0
-    dispatcher: null
+  height = 0
+  width = 0
+  dispatcher = null
 
   legends = [
     (d) -> "Last job lead time: #{d.toFixed(1)} days"
@@ -133,8 +132,8 @@ legend = () ->
       # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
       svg.enter().append("svg")
       g = svg.append("g")
-        .attr('height',attrs['height'])
-        .attr('width',attrs['width'])
+        .attr('height',height)
+        .attr('width',width)
       g.selectAll("text")
         .data([0..legends.length-1])
         .enter()
@@ -143,7 +142,7 @@ legend = () ->
         .attr("text-anchor", "left")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
         .text((d,i) -> legends[i](d))
-      attrs['dispatcher'].on('finished.legend',
+      dispatcher.on('finished.legend',
         (state,job) ->
           g.selectAll("text").data([
             system_time(job)
@@ -155,19 +154,20 @@ legend = () ->
           ])
           .text((d,i) -> console.log("D: #{d}; I: #{i}"); legends[i](d))))
 
-  getset = (key,value) ->
-    return attrs[key] if !value?
-    attrs[key] = value
-    return my
-
   my.height = (value) ->
-    getset('height',value)
+    return height if !value?
+    height = value
+    my
 
   my.width = (value) ->
-    getset('width',value)
+    return width if !value?
+    width = value
+    my
 
   my.dispatcher = (value) ->
-    getset('dispatcher',value)
+    return dispatcher if !value?
+    dispatcher = value
+    my
 
   return my
   
