@@ -112,7 +112,51 @@ cap = d3.select("body")
     .append("input")
     .on("change", () -> dispatch.params(this.value))
 
-legend = (svg,height,width,dispatcher) ->
+legend = () ->
+  attrs =
+    height: 0
+    width: 0
+    dispatcher: null
+
+  my = (selection) ->
+    selection.each((d,i) ->
+      canvas = d3.select(this).append("g")
+        .attr('height',attrs['height'])
+        .attr('width',attrs['width'])
+        .attr('transform','translate(1350,0)')
+      l = canvas.selectAll(".legend")
+        .data(0 for n in legends)
+        .enter().append("svg:text")
+        .attr('y',(d,i) -> 100 + (i*30))
+        .attr("text-anchor", "left")
+        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+        .text((d,i) -> legends[i](d))
+      attrs['dispatcher'].on('finished.legend',
+        (state,job) ->
+          l.data([
+            system_time(job)
+            (queue_time(job)/system_time(job) * 100)
+            avg_queue_pct(state)
+            finished(state)
+            avg_system_time(state) * finished(state) * 100
+            dur(state['start_time'],now(state)) / 60 / 60 / 24
+          ])
+          .text((d,i) -> legends[i](d))))
+
+  getset = (key,value) ->
+    return attrs[key] if !value?
+    attrs[key] = value
+    return my
+
+  my.height = (value) ->
+    getset('height',value)
+
+  my.width = (value) ->
+    getset('width',value)
+
+  my.dispatcher = (value) ->
+    getset('dispatcher',value)
+
   legends = [
     (d) -> "Last job lead time: #{d.toFixed(1)} days"
     (d) -> "% queue time: #{d.toFixed(0)}%"
@@ -121,28 +165,8 @@ legend = (svg,height,width,dispatcher) ->
     (d) -> "Total Cost of Delay: $#{d.toFixed(0)}"
     (d) -> "Elapsed time: #{d.toFixed(1)} days"
   ]
-  canvas = svg.append("g")
-    .attr('height',height)
-    .attr('width',width)
-    .attr('transform','translate(1350,0)')
-  l = canvas.selectAll("text.legend")
-    .data(0 for n in legends)
-    .enter().append("svg:text")
-    .attr('y',(d,i) -> 100 + (i*30))
-    .attr("text-anchor", "left")
-    .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-    .text((d,i) -> legends[i](d))
-  dispatcher.on('finished.legend',
-    (state,job) ->
-      l.data([
-        system_time(job)
-        (queue_time(job)/system_time(job) * 100)
-        avg_queue_pct(state)
-        finished(state)
-        avg_system_time(state) * finished(state) * 100
-        dur(state['start_time'],now(state)) / 60 / 60 / 24
-      ])
-      .text((d,i) -> legends[i](d)))
+
+  return my
   
 assigner(1,1)
 
@@ -283,7 +307,6 @@ dispatch.on('params',
     width = 2000
     graph_width = 600
     graph_height = 300
-    legend_width = 300
     height = 400
 
     dateformat = (d) ->
@@ -299,7 +322,10 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
-    legend(canvas,graph_height,graph_width/2,local_dispatch)
+    canvas.call(legend()
+      .height(graph_height)
+      .width(graph_width/2)
+      .dispatcher(local_dispatch))
     barchart(canvas,graph_width,graph_height,local_dispatch)
     scatterchart(canvas,graph_width,graph_height,local_dispatch)
 
