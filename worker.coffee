@@ -119,14 +119,15 @@ legend = () ->
     dispatcher: null
 
   my = (selection) ->
-    selection.each(() ->
-      canvas = d3.select(this).append("g")
-        .attr('height',attrs['height'])
-        .attr('width',attrs['width'])
-      l = canvas.selectAll(".legend")
+    selection.each((d) ->
+      svg = d3.select(this).selectAll("svg").data([d])
+      svg.enter().append("svg")
+      l = svg.append("g")
         .data(0 for n in legends)
         .enter().append("svg:text")
         .attr('y',(d,i) -> 100 + (i*30))
+        .attr('height',attrs['height'])
+        .attr('width',attrs['width'])
         .attr("text-anchor", "left")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
         .text((d,i) -> legends[i](d))
