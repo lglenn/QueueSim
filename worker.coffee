@@ -118,22 +118,34 @@ legend = () ->
     width: 0
     dispatcher: null
 
+  legends = [
+    (d) -> "Last job lead time: #{d.toFixed(1)} days"
+    (d) -> "% queue time: #{d.toFixed(0)}%"
+    (d) -> "Avg % queue time: #{d.toFixed(0)}%"
+    (d) -> "Jobs completed: #{d}"
+    (d) -> "Total Cost of Delay: $#{d.toFixed(0)}"
+    (d) -> "Elapsed time: #{d.toFixed(1)} days"
+  ]
+
   my = (selection) ->
     selection.each((d) ->
       svg = d3.select(this).selectAll("svg").data([d])
+      # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
       svg.enter().append("svg")
-      l = svg.append("g")
-        .data(0 for n in legends)
-        .enter().append("svg:text")
-        .attr('y',(d,i) -> 100 + (i*30))
+      g = svg.append("g")
         .attr('height',attrs['height'])
         .attr('width',attrs['width'])
+      g.selectAll("text")
+        .data([0..legends.length-1])
+        .enter()
+        .append("svg:text")
+        .attr('y',(d,i) -> 100 + (i*30))
         .attr("text-anchor", "left")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
         .text((d,i) -> legends[i](d))
       attrs['dispatcher'].on('finished.legend',
         (state,job) ->
-          l.data([
+          g.selectAll("text").data([
             system_time(job)
             (queue_time(job)/system_time(job) * 100)
             avg_queue_pct(state)
@@ -141,7 +153,7 @@ legend = () ->
             avg_system_time(state) * finished(state) * 100
             dur(state['start_time'],now(state)) / 60 / 60 / 24
           ])
-          .text((d,i) -> legends[i](d))))
+          .text((d,i) -> console.log("D: #{d}; I: #{i}"); legends[i](d))))
 
   getset = (key,value) ->
     return attrs[key] if !value?
@@ -156,15 +168,6 @@ legend = () ->
 
   my.dispatcher = (value) ->
     getset('dispatcher',value)
-
-  legends = [
-    (d) -> "Last job lead time: #{d.toFixed(1)} days"
-    (d) -> "% queue time: #{d.toFixed(0)}%"
-    (d) -> "Avg % queue time: #{d.toFixed(0)}%"
-    (d) -> "Jobs completed: #{d}"
-    (d) -> "Total Cost of Delay: $#{d.toFixed(0)}"
-    (d) -> "Elapsed time: #{d.toFixed(1)} days"
-  ]
 
   return my
   
@@ -322,7 +325,7 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
-    canvas.append("g").attr('height',graph_height).attr('width',graph_width/2).attr('transform','translate(1350,0)').call(legend()
+    d3.select('body').append('div').attr('class','.legend').style('border','1px solid red').call(legend()
       .height(graph_height)
       .width(graph_width/2)
       .dispatcher(local_dispatch))
