@@ -123,7 +123,6 @@ legend = () ->
       canvas = d3.select(this).append("g")
         .attr('height',attrs['height'])
         .attr('width',attrs['width'])
-        .attr('transform','translate(1350,0)')
       l = canvas.selectAll(".legend")
         .data(0 for n in legends)
         .enter().append("svg:text")
@@ -322,7 +321,7 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
-    canvas.call(legend()
+    canvas.append("g").attr('height',graph_height).attr('width',graph_width/2).attr('transform','translate(1350,0)').call(legend()
       .height(graph_height)
       .width(graph_width/2)
       .dispatcher(local_dispatch))
