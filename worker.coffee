@@ -119,7 +119,7 @@ legend = () ->
     dispatcher: null
 
   my = (selection) ->
-    selection.each((d,i) ->
+    selection.each(() ->
       canvas = d3.select(this).append("g")
         .attr('height',attrs['height'])
         .attr('width',attrs['width'])
