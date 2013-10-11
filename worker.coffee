@@ -115,7 +115,7 @@ cap = d3.select("body")
 legend = () ->
   height = 0
   width = 0
-  dispatcher = null
+  mydispatch = null
 
   legends = [
     (d) -> "Last job lead time: #{d.toFixed(1)} days"
@@ -142,7 +142,7 @@ legend = () ->
         .attr("text-anchor", "left")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
         .text((d,i) -> legends[i](d))
-      dispatcher.on('finished.legend',
+      mydispatch.on('finished.legend',
         (state,job) ->
           g.selectAll("text").data([
             system_time(job)
@@ -164,19 +164,19 @@ legend = () ->
     width = value
     my
 
-  my.dispatcher = (value) ->
-    return dispatcher if !value?
-    dispatcher = value
+  my.mydispatch = (value) ->
+    return mydispatch if !value?
+    mydispatch = value
     my
 
   return my
   
 assigner(1,1)
 
-scatterchart = (svg,width,height,dispatch) ->
+scatterchart = () ->
   height = 0
   width = 0
-  dispatch = null
+  mydispatch = null
   max_lead = 30
   margin =
     top: 20
@@ -222,7 +222,7 @@ scatterchart = (svg,width,height,dispatch) ->
         .attr('transform',"translate(30,#{height - margin.top - margin.bottom})")
         .call(xaxis)
     
-      dispatch.on('finished.scatterchart',
+      mydispatch.on('finished.scatterchart',
         (state,job) ->
           canvas.append('circle')
             .attr('r',0)
@@ -247,9 +247,9 @@ scatterchart = (svg,width,height,dispatch) ->
     width = value
     return my
 
-  my.dispatch = (value) ->
-    return dispatch if !value?
-    dispatch = value
+  my.mydispatch = (value) ->
+    return mydispatch if !value?
+    mydispatch = value
     return my
 
   my.max_lead = (value) ->
@@ -259,75 +259,111 @@ scatterchart = (svg,width,height,dispatch) ->
 
   return my
 
-barchart = (canvas,width,height,dispatch) ->
+barchart = () ->
   barwidth = 120
   names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
   colors = ['red','green','#ff8800','#0088ff']
+  width = 0
+  height = 0
+  mydispatch = null
+  margin =
+    top: 20
+    right: 20
+    bottom: 20
+    left: 20
 
-  x = d3.scale.linear().domain([0,4]).range([0,width])
-  y = d3.scale.linear().domain([0, 30]).range([height, 0]).nice()
+  my = (selection) ->
+    selection.each((d) ->
+      x = d3.scale.linear().domain([0,4]).range([0,width])
+      y = d3.scale.linear().domain([0, 30]).range([height, 0]).nice()
+    
+      svg = d3.select(this).selectAll("svg").data([d])
+      # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
+      svg.enter().append("svg")
 
-  canvas.selectAll("text.xaxis")
-    .data([0,0,0,0])
-    .enter().append("svg:text")
-    .attr("x", (d,i) -> x(i) + barwidth )
-    .attr("y", height - 15)
-    .attr("dx", -barwidth/2)
-    .attr("text-anchor", "middle")
-    .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-    .text((d,i) -> names[i])
-    .attr("transform", "translate(0, 32)")
-    .attr("class", "yAxis")
+      svg.attr('height',height ).attr('width',width)
 
-  yaxis = d3.svg.axis()
-    .scale(y)
-    .orient("left")
-    .tickFormat(d3.format(".2s"))
+      canvas = svg.append("g")
+        .attr('transform',"translate(#{margin.left},#{margin.top})")
+    
+      canvas.selectAll("text.xaxis")
+        .data([0,0,0,0])
+        .enter().append("svg:text")
+        .attr("x", (d,i) -> x(i) + barwidth )
+        .attr("y", height - 15)
+        .attr("dx", -barwidth/2)
+        .attr("text-anchor", "middle")
+        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+        .text((d,i) -> names[i])
+        .attr("transform", "translate(0, 32)")
+        .attr("class", "yAxis")
+    
+      yaxis = d3.svg.axis()
+        .scale(y)
+        .orient("left")
+        .tickFormat(d3.format(".2s"))
+    
+      xaxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom")
+        .tickSize(0)
+        .tickFormat("")
+    
+      canvas.append("g")
+        .attr("class", "y axis")
+        .call(yaxis)
+    
+      bars = canvas.selectAll('bars')
+        .data([0,0,0,0])
+        .enter()
+        .append('rect')
+        .style('stroke','black')
+        .style('fill',(d,i) -> colors[i])
+        .attr('x',(d,i) -> x(i))
+        .attr('y',height)
+        .attr('width',barwidth)
+        .attr('height',(d) -> d)
+        .style('opacity',.5)
+    
+      canvas.append("g")
+        .attr("class", "x axis")
+        .attr("width",width)
+        .attr('height',100)
+        .attr('transform',"translate(0,#{height})")
+        .call(xaxis)
+    
+      mydispatch.on('update.barchart',
+        (state) ->
+          heights = () ->
+            height - y(n) for n in [
+              state['queue'].length
+              avg_system_size(state)
+              avg_system_time(state)
+              avg_job_size(state)
+            ]
+          bars.data(heights)
+          .transition()
+          .delay(0)
+          .duration(120)
+          .attr('y',(d) -> height - d)
+          .attr('height',(d) -> d)))
 
-  xaxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom")
-    .tickSize(0)
-    .tickFormat("")
+  my.height = (value) ->
+    return height if !value?
+    height = value
+    return my
 
-  canvas.append("g")
-    .attr("class", "y axis")
-    .call(yaxis)
+  my.width = (value) ->
+    return width if !value?
+    width = value
+    return my
 
-  bars = canvas.selectAll('bars')
-    .data([0,0,0,0])
-    .enter()
-    .append('rect')
-    .style('stroke','black')
-    .style('fill',(d,i) -> colors[i])
-    .attr('x',(d,i) -> x(i))
-    .attr('y',height)
-    .attr('width',barwidth)
-    .attr('height',(d) -> d)
-    .style('opacity',.5)
+  my.mydispatch = (value) ->
+    return mydispatch if !value?
+    mydispatch = value
+    return my
 
-  canvas.append("g")
-    .attr("class", "x axis")
-    .attr("width",width)
-    .attr('height',100)
-    .attr('transform',"translate(0,#{height})")
-    .call(xaxis)
-
-  dispatch.on('update.barchart',
-    (state) ->
-      heights = () ->
-        height - y(n) for n in [
-          state['queue'].length
-          avg_system_size(state)
-          avg_system_time(state)
-          avg_job_size(state)
-        ]
-      bars.data(heights)
-      .transition()
-      .delay(0)
-      .duration(120)
-      .attr('y',(d) -> height - d)
-      .attr('height',(d) -> d))
+  return my
 
 title = (canvas,x,y,text) ->
   canvas.selectAll("text.title")
@@ -365,14 +401,32 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
-    d3.select('body').append('div').attr('class','.legend').style('border','1px solid red').call(legend()
-      .height(graph_height)
-      .width(graph_width/2)
-      .dispatcher(local_dispatch))
-    barchart(canvas,graph_width,graph_height,local_dispatch)
-    canvas.append("g").attr('transform','translate(675,0)').call(scatterchart().height(graph_height).width(graph_width).dispatch(local_dispatch))
+
+    d3.select('body')
+      .append('div')
+      .attr('class','.legend')
+      .style('border','1px solid red')
+      .call(legend()
+        .height(graph_height)
+        .width(graph_width/2)
+        .mydispatch(local_dispatch))
+
+    canvas.append("g")
+      .call(barchart()
+        .height(graph_height)
+        .width(graph_width)
+        .mydispatch(local_dispatch))
+
+    canvas.append("g")
+      .attr('transform','translate(675,0)')
+      .call(scatterchart()
+        .height(graph_height)
+        .width(graph_width)
+        .mydispatch(local_dispatch))
 
     worker(processing_rate,state,local_dispatch)
+
+    console.log "Dispatch is #{dispatch}"
 
     dispatch.on("newjob.#{id}",
       (arrival,process) ->
