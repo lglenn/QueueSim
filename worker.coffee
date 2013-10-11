@@ -174,50 +174,90 @@ legend = () ->
 assigner(1,1)
 
 scatterchart = (svg,width,height,dispatch) ->
-  x = d3.scale.linear().domain([0,30]).range([0,width])
-  y = d3.scale.linear().domain([0, 1]).range([height, 0]).nice()
-  c = d3.scale.linear().domain([0,8]).range([0,40]).nice()
+  height = 0
+  width = 0
+  dispatch = null
+  max_lead = 30
+  margin =
+    top: 20
+    right: 20
+    bottom: 20
+    left: 20
 
-  yaxis = d3.svg.axis()
-    .scale(y)
-    .orient("left")
-    .tickFormat(d3.format("2s"))
+  my = (selection) ->
+    selection.each((d) ->
+      x = d3.scale.linear().domain([0,max_lead]).range([0,width - margin.left - margin.right])
+      y = d3.scale.linear().domain([0, 1]).range([height - margin.top - margin.bottom, 0]).nice()
+      c = d3.scale.linear().domain([0,8]).range([0,40]).nice()
 
-  xaxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom")
-    .tickSize(0)
-    .tickFormat(d3.format("2s"))
+      yaxis = d3.svg.axis()
+        .scale(y)
+        .orient("left")
+        .tickFormat(d3.format("2s"))
+    
+      xaxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom")
+        .tickSize(0)
+        .tickFormat(d3.format("2s"))
+    
+      svg = d3.select(this).selectAll("svg").data([d])
+      # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
+      svg.enter().append("svg")
 
-  canvas = svg.append("g")
-    .attr('height',height)
-    .attr('width',width)
-    .attr('transform','translate(675,0)')
+      svg.attr('height',height ).attr('width',width)
 
-  canvas.append("g")
-    .attr("class", "y axis")
-    .call(yaxis)
+      canvas = svg.append("g")
+        .attr('transform',"translate(#{margin.left},#{margin.top})")
+    
+      canvas.append("g")
+        .attr("class", "y axis")
+        .attr('transform',"translate(30,0)")
+        .call(yaxis)
+    
+      canvas.append("g")
+        .attr("class", "x axis")
+        .attr("width",width)
+        .attr('height',100)
+        .attr('transform',"translate(30,#{height - margin.top - margin.bottom})")
+        .call(xaxis)
+    
+      dispatch.on('finished.scatterchart',
+        (state,job) ->
+          canvas.append('circle')
+            .attr('r',0)
+            .attr('cy',y(queue_pct(job)/100))
+            .attr('cx',x(system_time(job)))
+            .attr('transform','translate(30,0)')
+            .style('fill','#ff4444')
+            .style('opacity',0.5)
+            .style('stroke','black')
+            .transition()
+            .delay(0)
+            .duration(120)
+            .attr('r',c(process_time(job)))))
 
-  canvas.append("g")
-    .attr("class", "x axis")
-    .attr("width",width)
-    .attr('height',100)
-    .attr('transform',"translate(0,#{height})")
-    .call(xaxis)
+  my.height = (value) ->
+    return height if !value?
+    height = value
+    return my
 
-  dispatch.on('finished.scatterchart',
-    (state,job) ->
-      canvas.append('circle')
-        .attr('r',0)
-        .attr('cy',y(queue_pct(job)/100))
-        .attr('cx',x(system_time(job)))
-        .style('fill','#ff4444')
-        .style('opacity',0.5)
-        .style('stroke','black')
-        .transition()
-        .delay(0)
-        .duration(120)
-        .attr('r',c(process_time(job))))
+  my.width = (value) ->
+    return width if !value?
+    width = value
+    return my
+
+  my.dispatch = (value) ->
+    return dispatch if !value?
+    dispatch = value
+    return my
+
+  my.max_lead = (value) ->
+    return max_lead if !value?
+    max_lead = value
+    return my
+
+  return my
 
 barchart = (canvas,width,height,dispatch) ->
   barwidth = 120
@@ -330,7 +370,7 @@ dispatch.on('params',
       .width(graph_width/2)
       .dispatcher(local_dispatch))
     barchart(canvas,graph_width,graph_height,local_dispatch)
-    scatterchart(canvas,graph_width,graph_height,local_dispatch)
+    canvas.append("g").attr('transform','translate(675,0)').call(scatterchart().height(graph_height).width(graph_width).dispatch(local_dispatch))
 
     worker(processing_rate,state,local_dispatch)
 
