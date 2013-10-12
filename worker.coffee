@@ -274,9 +274,11 @@ barchart = () ->
 
   my = (selection) ->
     selection.each((d) ->
-      x = d3.scale.linear().domain([0,4]).range([0,width])
-      y = d3.scale.linear().domain([0, 30]).range([height, 0]).nice()
-    
+      frame =
+          height: height - margin.top - margin.bottom
+          width: width - margin.left - margin.right
+      x = d3.scale.linear().domain([0,4]).range([0,frame.width])
+      y = d3.scale.linear().domain([0, 30]).range([frame.height, 0]).nice()
       svg = d3.select(this).selectAll("svg").data([d])
       # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
       svg.enter().append("svg")
@@ -285,29 +287,35 @@ barchart = () ->
 
       canvas = svg.append("g")
         .attr('transform',"translate(#{margin.left},#{margin.top})")
-    
-      canvas.selectAll("text.xaxis")
-        .data([0,0,0,0])
-        .enter().append("svg:text")
-        .attr("x", (d,i) -> x(i) + barwidth )
-        .attr("y", height - 15)
-        .attr("dx", -barwidth/2)
-        .attr("text-anchor", "middle")
-        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-        .text((d,i) -> names[i])
-        .attr("transform", "translate(0, 32)")
-        .attr("class", "yAxis")
-    
-      yaxis = d3.svg.axis()
-        .scale(y)
-        .orient("left")
-        .tickFormat(d3.format(".2s"))
+        .attr('height',frame.height)
+        .attr('width',frame.width)
     
       xaxis = d3.svg.axis()
         .scale(x)
         .orient("bottom")
         .tickSize(0)
         .tickFormat("")
+    
+      canvas.append("g")
+        .attr("class", "x axis")
+        .attr('transform',"translate(0,#{frame.height})")
+        .call(xaxis)
+    
+      canvas.selectAll("text.xaxis")
+        .data([0,0,0,0])
+        .enter().append("svg:text")
+        .attr("x", (d,i) -> x(i) + barwidth )
+        .attr("y", frame.height + 12)
+        .attr("dx", -barwidth/2)
+        .attr("text-anchor", "middle")
+        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+        .text((d,i) -> names[i])
+        .attr("class", "yAxis")
+    
+      yaxis = d3.svg.axis()
+        .scale(y)
+        .orient("left")
+        .tickFormat(d3.format(".2s"))
     
       canvas.append("g")
         .attr("class", "y axis")
@@ -320,17 +328,10 @@ barchart = () ->
         .style('stroke','black')
         .style('fill',(d,i) -> colors[i])
         .attr('x',(d,i) -> x(i))
-        .attr('y',height)
+        .attr('y',frame.height)
         .attr('width',barwidth)
         .attr('height',(d) -> d)
         .style('opacity',.5)
-    
-      canvas.append("g")
-        .attr("class", "x axis")
-        .attr("width",width)
-        .attr('height',100)
-        .attr('transform',"translate(0,#{height})")
-        .call(xaxis)
     
       mydispatch.on('update.barchart',
         (state) ->
@@ -345,7 +346,7 @@ barchart = () ->
           .transition()
           .delay(0)
           .duration(120)
-          .attr('y',(d) -> height - d)
+          .attr('y',(d) -> frame.height - d)
           .attr('height',(d) -> d)))
 
   my.height = (value) ->
