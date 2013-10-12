@@ -364,6 +364,11 @@ barchart = () ->
     mydispatch = value
     return my
 
+  my.margin = (value) ->
+    return margin if !value?
+    margin = value
+    return my
+
   return my
 
 title = (canvas,x,y,text) ->
