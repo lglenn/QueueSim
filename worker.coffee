@@ -279,13 +279,16 @@ barchart = () ->
           width: width - margin.left - margin.right
       x = d3.scale.linear().domain([0,4]).range([0,frame.width])
       y = d3.scale.linear().domain([0, 30]).range([frame.height, 0]).nice()
-      svg = d3.select(this).selectAll("svg").data([d])
-      # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
-      svg.enter().append("svg")
 
+      svg = d3.select(this).selectAll("svg").data([d])
       svg.attr('height',height ).attr('width',width)
 
-      canvas = svg.append("g")
+      genter = svg.enter().append("svg").append("g")
+      genter.append('g').attr('class','xaxis')
+      genter.append('g').attr('class','yaxis')
+      genter.append('g').attr('class','chart')
+      
+      genter
         .attr('transform',"translate(#{margin.left},#{margin.top})")
         .attr('height',frame.height)
         .attr('width',frame.width)
@@ -294,14 +297,12 @@ barchart = () ->
         .scale(x)
         .orient("bottom")
         .tickSize(0)
-        .tickFormat("")
     
-      canvas.append("g")
-        .attr("class", "x axis")
+      svg.select(".xaxis")
         .attr('transform',"translate(0,#{frame.height})")
         .call(xaxis)
     
-      canvas.selectAll("text.xaxis")
+      svg.selectAll("text.xaxis")
         .data([0,0,0,0])
         .enter().append("svg:text")
         .attr("x", (d,i) -> x(i) + barwidth )
@@ -310,18 +311,16 @@ barchart = () ->
         .attr("text-anchor", "middle")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
         .text((d,i) -> names[i])
-        .attr("class", "yAxis")
     
       yaxis = d3.svg.axis()
         .scale(y)
         .orient("left")
         .tickFormat(d3.format(".2s"))
     
-      canvas.append("g")
-        .attr("class", "y axis")
+      svg.select('.yaxis')
         .call(yaxis)
     
-      bars = canvas.selectAll('bars')
+      bars = svg.select('.chart').selectAll('bars')
         .data([0,0,0,0])
         .enter()
         .append('rect')
@@ -332,7 +331,7 @@ barchart = () ->
         .attr('width',barwidth)
         .attr('height',(d) -> d)
         .style('opacity',.5)
-    
+
       mydispatch.on('update.barchart',
         (state) ->
           heights = () ->
@@ -408,6 +407,12 @@ dispatch.on('params',
 
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
 
+    margin =
+      top: 40
+      right: 40
+      bottom: 40
+      left: 40
+
     d3.select('body')
       .append('div')
       .attr('class','.legend')
@@ -421,6 +426,7 @@ dispatch.on('params',
       .call(barchart()
         .height(graph_height)
         .width(graph_width)
+        .margin(margin)
         .mydispatch(local_dispatch))
 
     canvas.append("g")
