@@ -92,7 +92,7 @@ worker = (capacity_utilization,state,dispatcher) ->
       job['done'] = new Date()
       incr(state['system_times'],dur(job['queued'],job['done']))
       incr(state['sizes'],dur(job['started'],job['done']))
-      dispatcher.finished(state,job)
+      dispatcher.finished(job)
       job = null
     if state['queue'].length > 0
       state['paused'] = null
@@ -144,7 +144,7 @@ legend = () ->
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
         .text((d,i) -> legends[i](d))
       mydispatch.on('finished.legend',
-        (state,job) ->
+        (job) ->
           g.selectAll("text").data([
             system_time(job)
             (queue_time(job)/system_time(job) * 100)
@@ -177,8 +177,9 @@ assigner(1,1)
 scatterchart = () ->
   height = 0
   width = 0
-  mydispatch = null
   max_lead = 30
+  fade_time = 120
+  max_radius = 40
   margin =
     top: 20
     right: 20
@@ -187,9 +188,12 @@ scatterchart = () ->
 
   my = (selection) ->
     selection.each((d) ->
-      x = d3.scale.linear().domain([0,max_lead]).range([0,width - margin.left - margin.right])
-      y = d3.scale.linear().domain([0, 1]).range([height - margin.top - margin.bottom, 0]).nice()
-      c = d3.scale.linear().domain([0,8]).range([0,40]).nice()
+      frame =
+          height: height - margin.top - margin.bottom
+          width: width - margin.left - margin.right
+      x = d3.scale.linear().domain([0,max_lead]).range([0,frame.width])
+      y = d3.scale.linear().domain([0,1]).range([frame.height, 0]).nice()
+      c = d3.scale.linear().domain([0,8]).range([0,max_radius]).nice()
 
       yaxis = d3.svg.axis()
         .scale(y)
@@ -202,41 +206,41 @@ scatterchart = () ->
         .tickSize(0)
         .tickFormat(d3.format("2s"))
     
-      svg = d3.select(this).selectAll("svg").data([d])
-      # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
-      svg.enter().append("svg")
-
+      svg = d3.select(this).selectAll('svg').data([d])
       svg.attr('height',height ).attr('width',width)
+      genter = svg.enter().append('svg').append('g').attr('class','frame')
+      genter.append('g').attr('class','x axis')
+      genter.append('g').attr('class','y axis')
+      genter.append('g').attr('class','chart')
 
-      canvas = svg.append("g")
+      svg.select('.frame')
         .attr('transform',"translate(#{margin.left},#{margin.top})")
+        .attr('width',frame.width)
+        .attr('height',frame.height)
     
-      canvas.append("g")
-        .attr("class", "y axis")
-        .attr('transform',"translate(30,0)")
+      g = svg.select('.frame')
+
+      g.select('.y.axis')
         .call(yaxis)
     
-      canvas.append("g")
-        .attr("class", "x axis")
-        .attr("width",width)
-        .attr('height',100)
-        .attr('transform',"translate(30,#{height - margin.top - margin.bottom})")
+      g.select('.x.axis')
+        .attr('transform',"translate(0,#{frame.height})")
         .call(xaxis)
     
-      mydispatch.on('finished.scatterchart',
-        (state,job) ->
-          canvas.append('circle')
-            .attr('r',0)
-            .attr('cy',y(queue_pct(job)/100))
-            .attr('cx',x(system_time(job)))
-            .attr('transform','translate(30,0)')
-            .style('fill','#ff4444')
-            .style('opacity',0.5)
-            .style('stroke','black')
-            .transition()
-            .delay(0)
-            .duration(120)
-            .attr('r',c(process_time(job)))))
+      circle = g.select('.chart').append('circle')
+        .data(d)
+        .attr('r',0)
+        .attr('cy',(d) -> y(d['y']))
+        .attr('cx',(d) -> x(d['x']))
+        .transition()
+        .delay(0)
+        .duration(fade_time)
+        .attr('r',(d) -> c(d['r']))
+
+      circle
+        .style('fill','#ff4444')
+        .style('opacity',0.5)
+        .style('stroke','black'))
 
   my.height = (value) ->
     return height if !value?
@@ -248,14 +252,19 @@ scatterchart = () ->
     width = value
     return my
 
-  my.mydispatch = (value) ->
-    return mydispatch if !value?
-    mydispatch = value
-    return my
-
   my.max_lead = (value) ->
     return max_lead if !value?
     max_lead = value
+    return my
+
+  my.max_radius = (value) ->
+    return max_radius if !value?
+    max_radius = value
+    return my
+
+  my.fade_time = (value) ->
+    return fade_time if !value?
+    fade_time = value
     return my
 
   return my
@@ -410,14 +419,14 @@ dispatch.on('params',
       bottom: 40
       left: 40
 
-    d3.select('body')
-      .append('div')
-      .attr('class','.legend')
-      .style('border','1px solid red')
-      .call(legend()
-        .height(graph_height)
-        .width(graph_width/2)
-        .mydispatch(local_dispatch))
+#    d3.select('body')
+#      .append('div')
+#      .attr('class','.legend')
+#      .style('border','1px solid red')
+#      .call(legend()
+#        .height(graph_height)
+#        .width(graph_width/2)
+#        .mydispatch(local_dispatch))
 
     bc = canvas.append("g")
 
@@ -436,12 +445,17 @@ dispatch.on('params',
           .width(graph_width)
           .margin(margin)))
 
-    canvas.append("g")
+    sc = canvas.append('g')
       .attr('transform','translate(675,0)')
-      .call(scatterchart()
-        .height(graph_height)
-        .width(graph_width)
-        .mydispatch(local_dispatch))
+
+    local_dispatch.on('finished.scatterchart',
+      (job) ->
+        sc.datum(
+          [ { 'x': system_time(job), 'y': queue_pct(job) / 100, 'r': process_time(job) } ]
+        )
+          .call(scatterchart()
+          .height(graph_height)
+          .width(graph_width)))
 
     worker(processing_rate,state,local_dispatch)
 
@@ -464,7 +478,7 @@ dispatch.on('params',
         log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
   
     local_dispatch.on('finished',
-      (state,job) ->
+      (job) ->
         log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
         local_dispatch.update(state))
   
