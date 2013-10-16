@@ -376,17 +376,6 @@ barchart = () ->
 
   return my
 
-title = (canvas,x,y,text) ->
-  canvas.selectAll("text.title")
-    .data([1])
-    .enter()
-    .append("svg:text")
-    .attr("x", x)
-    .attr("y", y)
-    .attr("text-anchor", "middle")
-    .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-    .text(text)
-
 dispatch = d3.dispatch('params','newjob')
 
 assigner(1,1,dispatch)
@@ -409,23 +398,25 @@ dispatch.on('params',
     log = (msg) ->
       console.log "#{dateformat now(state)}: #{msg}"
   
+    d3.select('#viz').append('div')
+      .attr('class','title')
+      .text("#{capacity_utilization * 100}% Capacity Utilization")
+
     canvas = d3.select("#viz").append('svg').attr('width',width).attr('height',height)
       .append("g")
       .attr("transform","translate(30,30)")
 
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
-    title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
-
     margin =
       top: 20
-      right: 20
+      right: 30
       bottom: 20
-      left: 20
+      left: 30
 
-    bc = canvas.append('g')
-    sc = canvas.append('g').attr('transform','translate(675,0)')
-    leg = d3.select('body').append('div').attr('class','.legend').style('border','1px solid red')
+    bc = canvas.append('g').attr('transform',"translate(30,0)")
+    sc = canvas.append('g').attr('transform',"translate(#{graph_width + 50},0)")
+    leg = canvas.append('g').attr('transform',"translate(#{(graph_width + 50) * 2},0)")
 
     bars = barchart().height(graph_height).width(graph_width).margin(margin)
     scatter = scatterchart().height(graph_height).width(graph_width).margin(margin)
