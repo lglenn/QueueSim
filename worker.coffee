@@ -22,8 +22,9 @@ now = (state) ->
 rand = (rate) ->
   Math.log(1-Math.random())/(-1 * rate)
 
-sleeptime = (rate) ->
-  rand(rate) * 1000
+scaled_rate = (offset) ->
+  (rate) ->
+    rand(rate) * offset
 
 avg = (hash) ->
   if hash['count'] is 0
@@ -72,6 +73,8 @@ avg_arrival_rate = (state) ->
 avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
   avg_arrival_rate(state) * avg_system_time(state)
+
+sleeptime = scaled_rate(1000)
 
 # Assign work at a given rate
 assigner = (arrival_rate,processing_rate,dispatch) ->
