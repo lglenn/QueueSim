@@ -73,10 +73,8 @@ avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
   avg_arrival_rate(state) * avg_system_time(state)
 
-dispatch = d3.dispatch('params','newjob')
-
 # Assign work at a given rate
-assigner = (arrival_rate,processing_rate) ->
+assigner = (arrival_rate,processing_rate,dispatch) ->
   myassigner = () ->
     t = sleeptime(arrival_rate)
     size = sleeptime(processing_rate)
@@ -173,10 +171,13 @@ legend = () ->
     mydispatch = value
     my
 
+  my.margin = (value) ->
+    return margin if !value?
+    margin = value
+    my
+
   return my
   
-assigner(1,1)
-
 scatterchart = () ->
   height = 0
   width = 0
@@ -268,6 +269,11 @@ scatterchart = () ->
   my.fade_time = (value) ->
     return fade_time if !value?
     fade_time = value
+    return my
+
+  my.margin = (value) ->
+    return margin if !value?
+    margin = value
     return my
 
   return my
@@ -390,6 +396,10 @@ title = (canvas,x,y,text) ->
     .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
     .text(text)
 
+dispatch = d3.dispatch('params','newjob')
+
+assigner(1,1,dispatch)
+
 dispatch.on('params',
   (capacity_utilization) ->
     state = newstate()
@@ -417,13 +427,41 @@ dispatch.on('params',
     title(canvas,width/2,20,"Capacity Utilization: #{capacity_utilization * 100}%")
 
     margin =
-      top: 40
-      right: 40
-      bottom: 40
-      left: 40
+      top: 20
+      right: 20
+      bottom: 20
+      left: 20
 
     bc = canvas.append("g")
+    sc = canvas.append('g').attr('transform','translate(675,0)')
+    leg = d3.select('body').append('div').attr('class','.legend').style('border','1px solid red')
 
+    bars = barchart().height(graph_height).width(graph_width).margin(margin)
+    scatter = scatterchart().height(graph_height).width(graph_width).margin(margin)
+    lc = legend().height(graph_height).width(graph_width/2).margin(margin)
+
+    bc.datum([0,0,0,0]).call(bars)
+    sc.datum([]).call(scatter)
+    leg.datum([0,0,0,0]).call(lc)
+
+    worker(processing_rate,state,local_dispatch)
+
+    dispatch.on("newjob.#{id}",
+      (arrival,process) ->
+        state['queue'].push {'queued': new Date(), 'size': process}
+        incr(state['arrivals'],arrival)
+        local_dispatch.update(state)
+        log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
+  
+    local_dispatch.on('started.log',
+      (job) ->
+        local_dispatch.update(state)
+        log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
+        log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
+        log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
+        log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
+        log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
+  
     local_dispatch.on('update.barchart',
       () ->
         bc.datum(
@@ -434,27 +472,14 @@ dispatch.on('params',
             avg_job_size(state)
           ]
         )
-          .call(barchart()
-          .height(graph_height)
-          .width(graph_width)
-          .margin(margin)))
-
-    sc = canvas.append('g')
-      .attr('transform','translate(675,0)')
+        .call(bars))
 
     local_dispatch.on('finished.scatterchart',
       (job) ->
         sc.datum(
           [ { 'x': system_time(job), 'y': queue_pct(job) / 100, 'r': process_time(job) } ]
         )
-          .call(scatterchart()
-          .height(graph_height)
-          .width(graph_width)))
-
-    leg = d3.select('body')
-      .append('div')
-      .attr('class','.legend')
-      .style('border','1px solid red')
+        .call(scatter))
 
     local_dispatch.on('finished.legend',
       (job) ->
@@ -466,35 +491,13 @@ dispatch.on('params',
           avg_system_time(state) * finished(state) * 100
           dur(state['start_time'],now(state)) / 60 / 60 / 24
         ])
-        .call(legend()
-        .height(graph_height)
-        .width(graph_width/2)))
+        .call(lc))
 
-    worker(processing_rate,state,local_dispatch)
-
-    console.log "Dispatch is #{dispatch}"
-
-    dispatch.on("newjob.#{id}",
-      (arrival,process) ->
-        state['queue'].push {'queued': new Date(), 'size': process}
-        incr(state['arrivals'],arrival)
-        local_dispatch.update(state)
-        log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
-  
-    local_dispatch.on('started',
-      (job) ->
-        local_dispatch.update(state)
-        log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
-        log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
-        log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
-        log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
-        log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
-  
-    local_dispatch.on('finished',
+    local_dispatch.on('finished.log',
       (job) ->
         log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
         local_dispatch.update(state))
   
-    local_dispatch.on('idle',
+    local_dispatch.on('idle.log',
       () ->
          log "Nothing for me to do... guess I'll take a nap." unless state['paused']?))
