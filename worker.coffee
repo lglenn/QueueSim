@@ -120,18 +120,9 @@ legend = () ->
     right: 20
     bottom: 20
     left: 20
-  legends = [
-    (d) -> "Last job lead time: #{d.toFixed(1)} days"
-    (d) -> "% queue time: #{d.toFixed(0)}%"
-    (d) -> "Avg % queue time: #{d.toFixed(0)}%"
-    (d) -> "Jobs completed: #{d}"
-    (d) -> "Total Cost of Delay: $#{d.toFixed(0)}"
-    (d) -> "Elapsed time: #{d.toFixed(1)} days"
-  ]
 
   my = (selection) ->
     selection.each((d) ->
-      console.log("**##** DATA: #{d}")
       frame =
         height: height - margin.top - margin.bottom
         width: width - margin.left - margin.right
@@ -148,13 +139,13 @@ legend = () ->
         .data(d)
         .enter()
         .append('svg:text')
-        .attr('y',(d,i) -> 100 + (i*20))
+        .attr('y',(d,i) -> 50 + (i*20))
         .attr('x',30)
         .attr("text-anchor", "left")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
 
       svg.selectAll('text')
-        .text((d,i) -> legends[i](d)))
+        .text(String))
 
   my.height = (value) ->
     return height if !value?
@@ -432,7 +423,7 @@ dispatch.on('params',
       bottom: 20
       left: 20
 
-    bc = canvas.append("g")
+    bc = canvas.append('g')
     sc = canvas.append('g').attr('transform','translate(675,0)')
     leg = d3.select('body').append('div').attr('class','.legend').style('border','1px solid red')
 
@@ -484,12 +475,12 @@ dispatch.on('params',
     local_dispatch.on('finished.legend',
       (job) ->
         leg.datum([
-          system_time(job)
-          (queue_time(job)/system_time(job) * 100)
-          avg_queue_pct(state)
-          finished(state)
-          avg_system_time(state) * finished(state) * 100
-          dur(state['start_time'],now(state)) / 60 / 60 / 24
+          "Last job lead time: #{system_time(job).toFixed(1)} days"
+          "% queue time: #{(queue_time(job)/system_time(job) * 100).toFixed(0)}%"
+          "Avg % queue time: #{avg_queue_pct(state).toFixed(0)}%"
+          "Jobs completed: #{finished(state)}"
+          "Total Cost of Delay: $#{(avg_system_time(state) * finished(state) * 100).toFixed(0)}"
+          "Elapsed time: #{(dur(state['start_time'],now(state)) / 60 / 60 / 24).toFixed(1)} days"
         ])
         .call(lc))
 
