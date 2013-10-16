@@ -142,7 +142,7 @@ legend = () ->
         .attr('y',(d,i) -> 50 + (i*20))
         .attr('x',30)
         .attr("text-anchor", "left")
-        .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
+        .attr('class','legend')
 
       svg.selectAll('text')
         .text(String))
@@ -233,9 +233,7 @@ scatterchart = () ->
         .attr('r',(d) -> c(d['r']))
 
       circle
-        .style('fill','#ff4444')
-        .style('opacity',0.5)
-        .style('stroke','black'))
+        .attr('class','scatterplot'))
 
   my.height = (value) ->
     return height if !value?
@@ -272,7 +270,6 @@ scatterchart = () ->
 barchart = () ->
   barwidth = 120
   names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
-  colors = ['red','green','#ff8800','#0088ff']
   width = 0
   height = 0
   ymax = 30
@@ -324,7 +321,6 @@ barchart = () ->
         .attr('y', frame.height + 12)
         .attr('dx', -barwidth/2)
         .attr('text-anchor', 'middle')
-        .attr('style', 'font-size: 12; font-family: Helvetica, sans-serif')
         .text((d,i) -> names[i])
     
       yaxis = d3.svg.axis()
@@ -340,12 +336,9 @@ barchart = () ->
 
       bars.enter()
         .append('rect')
-        .style('stroke','black')
-        .style('fill',(d,i) -> colors[i])
+        .attr('class',(d,i) -> "bar bar#{i}")
         .attr('x',(d,i) -> x(i))
         .attr('width',barwidth)
-        .attr('class','bar')
-        .style('opacity',.5)
 
       bars
         .transition()
