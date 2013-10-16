@@ -117,7 +117,11 @@ legend = () ->
   height = 0
   width = 0
   mydispatch = null
-
+  margin =
+    top: 20
+    right: 20
+    bottom: 20
+    left: 20
   legends = [
     (d) -> "Last job lead time: #{d.toFixed(1)} days"
     (d) -> "% queue time: #{d.toFixed(0)}%"
@@ -129,31 +133,30 @@ legend = () ->
 
   my = (selection) ->
     selection.each((d) ->
+      console.log("**##** DATA: #{d}")
+      frame =
+        height: height - margin.top - margin.bottom
+        width: width - margin.left - margin.right
       svg = d3.select(this).selectAll("svg").data([d])
-      # Create the SVG if the selection isn't one (i.e. if it's an e.g. div)
-      svg.enter().append("svg")
-      g = svg.append("g")
         .attr('height',height)
         .attr('width',width)
-      g.selectAll("text")
-        .data([0..legends.length-1])
+      svg.enter().append("svg").append("g")
+        .attr('class','frame')
+        .attr('height',frame.height)
+        .attr('width',frame.width)
+        .attr('transform',"translate(#{margin.left},#{margin.top})")
+
+      svg.select('.frame').selectAll('text')
+        .data(d)
         .enter()
-        .append("svg:text")
-        .attr('y',(d,i) -> 100 + (i*30))
+        .append('svg:text')
+        .attr('y',(d,i) -> 100 + (i*20))
+        .attr('x',30)
         .attr("text-anchor", "left")
         .attr("style", "font-size: 12; font-family: Helvetica, sans-serif")
-        .text((d,i) -> legends[i](d))
-      mydispatch.on('finished.legend',
-        (job) ->
-          g.selectAll("text").data([
-            system_time(job)
-            (queue_time(job)/system_time(job) * 100)
-            avg_queue_pct(state)
-            finished(state)
-            avg_system_time(state) * finished(state) * 100
-            dur(state['start_time'],now(state)) / 60 / 60 / 24
-          ])
-          .text((d,i) -> legends[i](d))))
+
+      svg.selectAll('text')
+        .text((d,i) -> legends[i](d)))
 
   my.height = (value) ->
     return height if !value?
@@ -419,15 +422,6 @@ dispatch.on('params',
       bottom: 40
       left: 40
 
-#    d3.select('body')
-#      .append('div')
-#      .attr('class','.legend')
-#      .style('border','1px solid red')
-#      .call(legend()
-#        .height(graph_height)
-#        .width(graph_width/2)
-#        .mydispatch(local_dispatch))
-
     bc = canvas.append("g")
 
     local_dispatch.on('update.barchart',
@@ -456,6 +450,25 @@ dispatch.on('params',
           .call(scatterchart()
           .height(graph_height)
           .width(graph_width)))
+
+    leg = d3.select('body')
+      .append('div')
+      .attr('class','.legend')
+      .style('border','1px solid red')
+
+    local_dispatch.on('finished.legend',
+      (job) ->
+        leg.datum([
+          system_time(job)
+          (queue_time(job)/system_time(job) * 100)
+          avg_queue_pct(state)
+          finished(state)
+          avg_system_time(state) * finished(state) * 100
+          dur(state['start_time'],now(state)) / 60 / 60 / 24
+        ])
+        .call(legend()
+        .height(graph_height)
+        .width(graph_width/2)))
 
     worker(processing_rate,state,local_dispatch)
 
