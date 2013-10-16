@@ -269,7 +269,7 @@ scatterchart = () ->
 
 barchart = () ->
   barwidth = 120
-  names  = ['Queue',"Avg Jobs in System","Avg Lead Time","Avg Job Size"]
+  labels  = []
   width = 0
   height = 0
   ymax = 30
@@ -321,7 +321,7 @@ barchart = () ->
         .attr('y', frame.height + 12)
         .attr('dx', -barwidth/2)
         .attr('text-anchor', 'middle')
-        .text((d,i) -> names[i])
+        .text((d,i) -> labels[i])
     
       yaxis = d3.svg.axis()
         .scale(y)
@@ -346,6 +346,11 @@ barchart = () ->
         .duration(120)
         .attr('height',(d) -> frame.height - y(d))
         .attr('y',y))
+
+  my.labels = (value) ->
+    return labels if !value?
+    labels = value
+    return my
 
   my.height = (value) ->
     return height if !value?
@@ -411,7 +416,7 @@ dispatch.on('params',
     sc = canvas.append('g').attr('transform',"translate(#{graph_width + 50},0)")
     leg = canvas.append('g').attr('transform',"translate(#{(graph_width + 50) * 2},0)")
 
-    bars = barchart().height(graph_height).width(graph_width).margin(margin)
+    bars = barchart().height(graph_height).width(graph_width).margin(margin).labels(['Queue','Avg Jobs in System','Avg Lead Time','Avg Job Size'])
     scatter = scatterchart().height(graph_height).width(graph_width).margin(margin)
     lc = legend().height(graph_height).width(graph_width/2).margin(margin)
 
