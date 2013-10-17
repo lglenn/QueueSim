@@ -117,7 +117,6 @@ cap = d3.select("body")
 legend = () ->
   height = 0
   width = 0
-  mydispatch = null
   margin =
     top: 20
     right: 20
@@ -160,11 +159,6 @@ legend = () ->
     width = value
     my
 
-  my.mydispatch = (value) ->
-    return mydispatch if !value?
-    mydispatch = value
-    my
-
   my.margin = (value) ->
     return margin if !value?
     margin = value
@@ -205,27 +199,27 @@ scatterchart = () ->
         .tickFormat(d3.format("2s"))
     
       svg = d3.select(this).selectAll('svg').data([d])
-      svg.attr('height',height ).attr('width',width)
-      genter = svg.enter().append('svg').append('g').attr('class','frame')
+      genter = svg.enter().append('svg').append('g')
       genter.append('g').attr('class','x axis')
       genter.append('g').attr('class','y axis')
       genter.append('g').attr('class','chart')
 
-      svg.select('.frame')
+      genter
+        .attr('class','frame')
         .attr('transform',"translate(#{margin.left},#{margin.top})")
         .attr('width',frame.width)
         .attr('height',frame.height)
     
-      g = svg.select('.frame')
+      fr = svg.select('.frame')
 
-      g.select('.y.axis')
+      fr.select('.y.axis')
         .call(yaxis)
     
-      g.select('.x.axis')
+      fr.select('.x.axis')
         .attr('transform',"translate(0,#{frame.height})")
         .call(xaxis)
     
-      circle = g.select('.chart').append('circle')
+      circle = fr.select('.chart').append('circle')
         .data(d)
         .attr('r',0)
         .attr('cy',(d) -> y(d['y']))
@@ -234,8 +228,6 @@ scatterchart = () ->
         .delay(0)
         .duration(fade_time)
         .attr('r',(d) -> c(d['r']))
-
-      circle
         .attr('class','scatterplot'))
 
   my.height = (value) ->
@@ -291,7 +283,6 @@ barchart = () ->
       y = d3.scale.linear().domain([0,ymax]).range([frame.height, 0]).nice()
 
       svg = d3.select(this).selectAll('svg').data([d])
-      svg.attr('height',height ).attr('width',width)
 
       genter = svg.enter().append('svg').append('g').attr('class','frame')
       genter.append('g').attr('class','x axis')
