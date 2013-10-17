@@ -284,9 +284,25 @@ barchart = () ->
 
       svg = d3.select(this).selectAll('svg').data([d])
 
-      genter = svg.enter().append('svg').append('g').attr('class','frame')
-      genter.append('g').attr('class','x axis')
+      xaxis = d3.svg.axis()
+        .scale(x)
+        .orient('bottom')
+        .tickSize(0)
+        .tickFormat('')
+    
+      yaxis = d3.svg.axis()
+        .scale(y)
+        .orient('left')
+        .tickFormat(d3.format('.2s'))
+    
+      genter = svg.enter().append('svg').append('g')
+        .attr('class','frame')
+      genter.append('g')
+        .attr('class','x axis')
+        .attr('transform',"translate(0,#{frame.height})")
+        .call(xaxis)
       genter.append('g').attr('class','y axis')
+        .call(yaxis)
       genter.append('g').attr('class','chart')
       
       genter
@@ -296,16 +312,6 @@ barchart = () ->
     
       g = svg.select('.frame')
 
-      xaxis = d3.svg.axis()
-        .scale(x)
-        .orient('bottom')
-        .tickSize(0)
-        .tickFormat('')
-    
-      g.select('.x.axis')
-        .attr('transform',"translate(0,#{frame.height})")
-        .call(xaxis)
-    
       xlabels = g.selectAll('.xlabel').data(d)
 
       xlabels.enter()
@@ -317,15 +323,7 @@ barchart = () ->
         .attr('text-anchor', 'middle')
         .text((d,i) -> labels[i])
     
-      yaxis = d3.svg.axis()
-        .scale(y)
-        .orient('left')
-        .tickFormat(d3.format('.2s'))
-    
-      g.select('.y.axis')
-        .call(yaxis)
-    
-      bars = svg.select('.chart').selectAll('.bar')
+      bars = g.select('.chart').selectAll('.bar')
         .data(d)
 
       bars.enter()
