@@ -1,6 +1,12 @@
+# Rate is (roughly) the number of milliseconds between clock ticks.
+# YMMV because of setTimeout
+# Don't make it too high, or you'll get a tight loop that gives nobody
+# else any time to do any work. 
 ticker = (rate) ->
   queue = []
   ticks = 0
+  paused = false
+  scale = 1/rate
 
   tick = () ->
     job = queue.shift()
@@ -16,17 +22,35 @@ ticker = (rate) ->
     ticks += 1
     setTimeout(my,rate)
 
+  # The scale brings the amount of time that you'll 
+  # actually wait in line with the value passed 
+  # in for t (which is assumed to be milliseconds)
+  # So, if the rate is 500, then the clock will tick
+  # about every 500 milliseconds. So if someone
+  # tells us they want to wait about 1000 milliseconds,
+  # we need to wait two ticks, or 1000 * .002
+  # (.002 being the reciprocal of the rate, 1/500).
   my.setticktimeout = (t,f) ->
-    queue.push [f,(t/100).toFixed(0)]
+    queue.push [f,(t * scale).toFixed(0)]
     return my
   
   my.time = () ->
     ticks * 100
 
+  # This is really just a convenience method.
+  # You could do:
+  # clock = timer()
+  # clock()
+  # ...but this is nicer:
+  # clock.start()
+  my.start = () ->
+    paused = false
+    my()
+
   return my
 
-clock = ticker(100)
-clock()
+clock = ticker(100,0.01)
+clock.start()
 
 counter = () ->
   'count': 0
