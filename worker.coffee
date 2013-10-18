@@ -407,7 +407,7 @@ dispatch.on('params',
     leg = canvas.append('g').attr('transform',"translate(#{(graph_width + 50) * 2},0)")
 
     bars = barchart().height(graph_height).width(graph_width).margin(margin).labels(['Queue','Avg Jobs in System','Avg Lead Time','Avg Job Size'])
-    scatter = scatterchart().height(graph_height).width(graph_width).margin(margin)
+    scatter = scatterchart().height(graph_height).width(graph_width).margin(margin).fade_time(120)
     lc = legend().height(graph_height).width(graph_width/2).margin(margin)
 
     bc.datum([0,0,0,0]).call(bars)
