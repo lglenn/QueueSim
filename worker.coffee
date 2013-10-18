@@ -109,9 +109,7 @@ worker = (capacity_utilization,state,dispatcher) ->
     setTimeout(myworker,t)
   myworker()
 
-cap = d3.select("body")
-    .append("div")
-    .append("input")
+cap = d3.select("#params").select('input')
     .on("change", () -> dispatch.params(this.value))
 
 legend = () ->
