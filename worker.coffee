@@ -212,7 +212,7 @@ scatterchart = () ->
           width: width - margin.left - margin.right
       x = d3.scale.linear().domain([0,max_lead]).range([0,frame.width])
       y = d3.scale.linear().domain([0,1]).range([frame.height, 0]).nice()
-      c = d3.scale.linear().domain([0,8]).range([0,max_radius]).nice()
+      c = d3.scale.sqrt().domain([0,8]).range([0,max_radius]).nice()
 
       yaxis = d3.svg.axis()
         .scale(y)
