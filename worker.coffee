@@ -1,9 +1,39 @@
+ticker = (rate) ->
+  queue = []
+  ticks = 0
+
+  tick = () ->
+    job = queue.shift()
+    if job[1] <= 1
+      job[0]()
+    else
+      job[1] -= 1
+      queue.push(job)
+
+  my = () ->
+    if queue.length > 0
+      tick() for index in [0..queue.length-1]
+    ticks += 1
+    setTimeout(my,rate)
+
+  my.setticktimeout = (t,f) ->
+    queue.push [f,(t/100).toFixed(0)]
+    return my
+  
+  my.time = () ->
+    ticks * 100
+
+  return my
+
+clock = ticker(100)
+clock()
+
 counter = () ->
   'count': 0
   'total': 0
 
 newstate = () ->
-  'start_time': new Date()
+  'start_time': clock.time()
   'queue': []
   'paused': null
   'job': null
@@ -13,10 +43,9 @@ newstate = () ->
   'system_times': counter()
 
 now = (state) ->
-  runtime = new Date() - state['start_time']
-  d = new Date()
-  d.setSeconds(d.getSeconds() + ((runtime / 1000) * 60 * 60 * 24))
-  d
+  runtime = clock.time() - state['start_time']
+  d = clock.time()
+  d + ((runtime / 1000) * 60 * 60 * 24)
 
 # Generates values from the exponential distribution with rate `rate`
 rand = (rate) ->
@@ -82,7 +111,7 @@ assigner = (arrival_rate,processing_rate,dispatch) ->
     t = sleeptime(arrival_rate)
     size = sleeptime(processing_rate)
     dispatch.newjob(t,size)
-    setTimeout(myassigner,t)
+    clock.setticktimeout(t,myassigner)
   myassigner()
 
 # Work at a given rate
@@ -90,7 +119,7 @@ worker = (capacity_utilization,state,dispatcher) ->
   job = null
   myworker = () ->
     if job?
-      job['done'] = new Date()
+      job['done'] = clock.time()
       incr(state['system_times'],dur(job['queued'],job['done']))
       incr(state['sizes'],dur(job['started'],job['done']))
       dispatcher.finished(job)
@@ -98,7 +127,7 @@ worker = (capacity_utilization,state,dispatcher) ->
     if state['queue'].length > 0
       state['paused'] = null
       job = state['queue'].shift()
-      job['started'] = new Date()
+      job['started'] = clock.time()
       incr(state['queue_times'],dur(job['queued'],job['started']))
       t = job['size'] * (1 / capacity_utilization)
       dispatcher.started()
@@ -106,7 +135,7 @@ worker = (capacity_utilization,state,dispatcher) ->
       dispatcher.idle()
       state['paused'] = 1
       t = 0
-    setTimeout(myworker,t)
+    clock.setticktimeout(t,myworker)
   myworker()
 
 cap = d3.select("#params").select('input')
@@ -381,7 +410,7 @@ dispatch.on('params',
     height = 400
 
     dateformat = (d) ->
-      "#{d.toLocaleDateString()} #{d.toLocaleTimeString()}"
+      d
 
     log = (msg) ->
       console.log "#{dateformat now(state)}: #{msg}"
@@ -418,7 +447,7 @@ dispatch.on('params',
 
     dispatch.on("newjob.#{id}",
       (arrival,process) ->
-        state['queue'].push {'queued': new Date(), 'size': process}
+        state['queue'].push {'queued': clock.time(), 'size': process}
         incr(state['arrivals'],arrival)
         local_dispatch.update(state)
         log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
