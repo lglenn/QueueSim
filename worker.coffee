@@ -1,12 +1,17 @@
+# Symbols:
+# ρ : capacity utilization
+# λ : average arrival rate
+
+# One tick == one hour
 # Rate is (roughly) the number of milliseconds between clock ticks.
 # YMMV because of setTimeout
 # Don't make it too high, or you'll get a tight loop that gives nobody
 # else any time to do any work. 
-ticker = (rate) ->
+ticker = (λ) ->
   queue = []
   ticks = 0
-  paused = false
-  scale = 1/rate
+  scale = 1/λ
+  days = d3.scale.linear().domain([0,24]).range([0,1])
 
   tick = () ->
     job = queue.shift()
@@ -20,37 +25,19 @@ ticker = (rate) ->
     if queue.length > 0
       tick() for index in [0..queue.length-1]
     ticks += 1
-    setTimeout(my,rate)
+    setTimeout(my,λ)
 
-  # The scale brings the amount of time that you'll 
-  # actually wait in line with the value passed 
-  # in for t (which is assumed to be milliseconds)
-  # So, if the rate is 500, then the clock will tick
-  # about every 500 milliseconds. So if someone
-  # tells us they want to wait about 1000 milliseconds,
-  # we need to wait two ticks, or 1000 * .002
-  # (.002 being the reciprocal of the rate, 1/500).
   my.setticktimeout = (t,f) ->
-    queue.push [f,(t * scale).toFixed(0)]
+    queue.push [f,t]
     return my
   
   my.time = () ->
-    ticks * 100
+    ticks
 
-  # This is really just a convenience method.
-  # You could do:
-  # clock = timer()
-  # clock()
-  # ...but this is nicer:
-  # clock.start()
   my.start = () ->
-    paused = false
     my()
 
   return my
-
-clock = ticker(100,0.01)
-clock.start()
 
 counter = () ->
   'count': 0
@@ -66,18 +53,28 @@ newstate = () ->
   'queue_times': counter()
   'system_times': counter()
 
+hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
+business_days_to_hours = d3.scale.linear().domain([0,1]).range([0,8])
+
+λ = .125
+clock = ticker(100)
+clock.start()
+
 now = (state) ->
-  runtime = clock.time() - state['start_time']
-  d = clock.time()
-  d + ((runtime / 1000) * 60 * 60 * 24)
+  clock.time() - state['start_time']
 
-# Generates values from the exponential distribution with rate `rate`
-rand = (rate) ->
-  Math.log(1-Math.random())/(-1 * rate)
+# Generates values from the exponential distribution with rate λ
+rand_exp = (λ) ->
+  Math.log(1-Math.random())/(-1 * λ)
 
-scaled_rate = (offset) ->
-  (rate) ->
-    rand(rate) * offset
+exponentially_distributed_value = (μ) ->
+  rand_exp(1/μ)
+
+scaled_rate = () ->
+  (μ) ->
+    Math.ceil(exponentially_distributed_value(μ))
+
+random_value = scaled_rate()
 
 avg = (hash) ->
   if hash['count'] is 0
@@ -90,7 +87,7 @@ incr = (hash,t) ->
   hash['total'] += t
 
 dur = (start,end) ->
-  (end - start) / 1000
+  (end - start)
 
 system_time = (job) ->
   dur(job['queued'],job['done'])
@@ -120,41 +117,48 @@ avg_system_time = (state) ->
   avg(state['system_times'])
 
 avg_arrival_rate = (state) ->
-  a = avg(state['arrivals'])/1000
+  a = avg(state['arrivals'])
   if a == 0 then 0 else 1/a
 
 avg_system_size = (state) ->
   # Little's law: avg jobs in system = avg arrival rate * avg time in system
+  #                    L = λW
   avg_arrival_rate(state) * avg_system_time(state)
 
-sleeptime = scaled_rate(1000)
-
 # Assign work at a given rate
-assigner = (arrival_rate,processing_rate,dispatch) ->
-  myassigner = () ->
-    t = sleeptime(arrival_rate)
-    size = sleeptime(processing_rate)
-    dispatch.newjob(t,size)
-    clock.setticktimeout(t,myassigner)
-  myassigner()
+assigner = (dispatch) ->
+  mean_interval = 8
+
+  my = () ->
+    interval = random_value(mean_interval)
+    dispatch.newjob(interval)
+    clock.setticktimeout(interval,my)
+
+  my.mean_interval = (value) ->
+    return mean_interval if !value?
+    mean_interval = value
+    my
+
+  my
 
 # Work at a given rate
-worker = (capacity_utilization,state,dispatcher) ->
+worker = (capacity,mean_size,state,dispatcher) ->
   job = null
   myworker = () ->
     if job?
       job['done'] = clock.time()
       incr(state['system_times'],dur(job['queued'],job['done']))
-      incr(state['sizes'],dur(job['started'],job['done']))
+      incr(state['sizes'],job['size'])
       dispatcher.finished(job)
       job = null
     if state['queue'].length > 0
       state['paused'] = null
       job = state['queue'].shift()
+      job['size'] = random_value(mean_size)
       job['started'] = clock.time()
       incr(state['queue_times'],dur(job['queued'],job['started']))
-      t = job['size'] * (1 / capacity_utilization)
       dispatcher.started()
+      t = (job['size'] / capacity)
     else
       dispatcher.idle()
       state['paused'] = 1
@@ -162,8 +166,13 @@ worker = (capacity_utilization,state,dispatcher) ->
     clock.setticktimeout(t,myworker)
   myworker()
 
-cap = d3.select("#params").select('input')
-    .on("change", () -> dispatch.params(this.value))
+d3.select("#params").selectAll('#go')
+  .on("click",
+    () ->
+      mean_arrival_interval = parseFloat(d3.select('#params').select('#mean_arrival_rate').property('value')) * 8
+      mean_job_size = parseFloat(d3.select('#params').select('#mean_job_size').property('value')) * 8
+      team_capacity = parseFloat(d3.select('#params').select('#team_capacity').property('value'))
+      dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
 
 legend = () ->
   height = 0
@@ -220,9 +229,11 @@ legend = () ->
 scatterchart = () ->
   height = 0
   width = 0
-  max_lead = 30
+  x_max = 30
+  c_max = 20
   fade_time = 120
   max_radius = 40
+  x_tick_format = d3.format("2s")
   margin =
     top: 20
     right: 20
@@ -234,20 +245,20 @@ scatterchart = () ->
       frame =
           height: height - margin.top - margin.bottom
           width: width - margin.left - margin.right
-      x = d3.scale.linear().domain([0,max_lead]).range([0,frame.width])
+      x = d3.scale.linear().domain([0,x_max]).range([0,frame.width])
       y = d3.scale.linear().domain([0,1]).range([frame.height, 0]).nice()
-      c = d3.scale.sqrt().domain([0,8]).range([0,max_radius]).nice()
+      c = d3.scale.sqrt().domain([0,c_max]).range([0,max_radius]).nice()
 
       yaxis = d3.svg.axis()
         .scale(y)
         .orient("left")
-        .tickFormat(d3.format("2s"))
+        .tickFormat((d) -> "#{d * 100}%")
     
       xaxis = d3.svg.axis()
         .scale(x)
         .orient("bottom")
         .tickSize(0)
-        .tickFormat(d3.format("2s"))
+        .tickFormat(x_tick_format)
     
       svg = d3.select(this).selectAll('svg').data([d])
       genter = svg.enter().append('svg').append('g')
@@ -281,6 +292,11 @@ scatterchart = () ->
         .attr('r',(d) -> c(d['r']))
         .attr('class','scatterplot'))
 
+  my.x_format = (value) ->
+    return x_tick_format if !value?
+    x_tick_format = value
+    return my
+
   my.height = (value) ->
     return height if !value?
     height = value
@@ -291,9 +307,14 @@ scatterchart = () ->
     width = value
     return my
 
-  my.max_lead = (value) ->
-    return max_lead if !value?
-    max_lead = value
+  my.x_max = (value) ->
+    return x_max if !value?
+    x_max = value
+    return my
+
+  my.c_max = (value) ->
+    return c_max if !value?
+    c_max = value
     return my
 
   my.max_radius = (value) ->
@@ -419,35 +440,41 @@ barchart = () ->
 
 dispatch = d3.dispatch('params','newjob')
 
-assigner(1,1,dispatch)
-
 dispatch.on('params',
-  (capacity_utilization) ->
+  (team_capacity,mean_job_size,mean_arrival_interval) ->
+    # team capacity: person-hours of work / day
+    # job size: person-hours
+    # arrival rate: hours
     state = newstate()
-    id = rand(100)
-    capacity_utilization = parseFloat(capacity_utilization)
-    arrival_rate = 1
-    processing_rate = arrival_rate / capacity_utilization
+    id = rand_exp(100)
+    ρ = (mean_job_size * (1/mean_arrival_interval)) / team_capacity
+
+    local_dispatch = d3.dispatch('update','started','finished','idle')
+
+    assigner(dispatch)
+      .mean_interval(mean_arrival_interval)
+      .call()
+
+    worker(team_capacity,mean_job_size,state,local_dispatch)
+
     width = 2000
     graph_width = 600
     graph_height = 300
     height = 400
 
     dateformat = (d) ->
-      d
+      "#{d.toFixed(2)} days"
 
     log = (msg) ->
       console.log "#{dateformat now(state)}: #{msg}"
   
     d3.select('#viz').append('div')
       .attr('class','title')
-      .text("#{capacity_utilization * 100}% Capacity Utilization")
+      .text("#{Math.round(ρ * 100)}% Capacity Utilization")
 
     canvas = d3.select("#viz").append('svg').attr('width',width).attr('height',height)
       .append("g")
       .attr("transform","translate(30,30)")
-
-    local_dispatch = d3.dispatch('update','started','finished','idle')
 
     margin =
       top: 20
@@ -467,21 +494,19 @@ dispatch.on('params',
     sc.datum([]).call(scatter)
     leg.datum([0,0,0,0]).call(lc)
 
-    worker(processing_rate,state,local_dispatch)
-
     dispatch.on("newjob.#{id}",
-      (arrival,process) ->
-        state['queue'].push {'queued': clock.time(), 'size': process}
+      (arrival) ->
+        state['queue'].push {'queued': clock.time()}
         incr(state['arrivals'],arrival)
         local_dispatch.update(state)
-        log "Do this one day job! Your queue is now #{state['queue'].length} deep.", 'red')
+        log "Do this one day job! Your queue is now #{state['queue'].length} deep.")
   
     local_dispatch.on('started.log',
       (job) ->
         local_dispatch.update(state)
         log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
-        log "Average job size:       #{avg_job_size(state).toFixed(1)} days."
-        log "Average lead time:      #{avg_system_time(state).toFixed(1)} days."
+        log "Average job size:       #{avg_job_size(state).toFixed(1)} hours."
+        log "Average lead time:      #{avg_system_time(state).toFixed(1)} hours."
         log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
         log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
   
@@ -491,8 +516,8 @@ dispatch.on('params',
           [
             state['queue'].length
             avg_system_size(state)
-            avg_system_time(state)
-            avg_job_size(state)
+            hours_to_business_days(avg_system_time(state))
+            hours_to_business_days(avg_job_size(state))
           ]
         )
         .call(bars))
@@ -500,25 +525,25 @@ dispatch.on('params',
     local_dispatch.on('finished.scatterchart',
       (job) ->
         sc.datum(
-          [ { 'x': system_time(job), 'y': queue_pct(job) / 100, 'r': process_time(job) } ]
+          [ { 'x': hours_to_business_days(system_time(job)), 'y': queue_pct(job) / 100, 'r': hours_to_business_days(process_time(job)) } ]
         )
         .call(scatter))
 
     local_dispatch.on('finished.legend',
       (job) ->
         leg.datum([
-          "Last job lead time: #{system_time(job).toFixed(1)} days"
+          "Last job lead time: #{system_time(job).toFixed(1)} hours"
           "% queue time: #{(queue_time(job)/system_time(job) * 100).toFixed(0)}%"
           "Avg % queue time: #{avg_queue_pct(state).toFixed(0)}%"
           "Jobs completed: #{finished(state)}"
           "Total Cost of Delay: $#{(avg_system_time(state) * finished(state) * 100).toFixed(0)}"
-          "Elapsed time: #{(dur(state['start_time'],now(state)) / 60 / 60 / 24).toFixed(1)} days"
+          "Elapsed time: #{hours_to_business_days(now(state)).toFixed(1)} business days"
         ])
         .call(lc))
 
     local_dispatch.on('finished.log',
       (job) ->
-        log "Finished job number #{finished(state)}! That job took #{process_time(job)} days! It's been in the system for #{system_time(job)} days, though. That's #{queue_pct(job).toFixed(0)}% queue time."
+        log "Finished job number #{finished(state)}! That job took #{process_time(job)} hours! It's been in the system for #{system_time(job)} hours, though. That's #{queue_pct(job).toFixed(0)}% queue time."
         local_dispatch.update(state))
   
     local_dispatch.on('idle.log',

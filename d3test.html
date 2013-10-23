@@ -6,7 +6,18 @@
   </head>
   <body>
     <div id="params">
-      Capacity Utilization: <input type="text" name="cap"/>
+      <div class="param">
+        Mean Arrival Rate: <input type="text" id="mean_arrival_rate" value="1"/> jobs per business day.
+      </div>
+      <div class="param">
+        Mean Job Size: <input type="text" id="mean_job_size" value="1"/> person-days.
+      </div>
+      <div class="param">
+        Team Size: <input type="text" id="team_capacity" value="1"/> people.
+      </div>
+      <div class="param">
+        <button id="go">Go!</button>
+      </div>
     </div>
     <div id="viz"></div>
     <script src="./worker.js"></script>
