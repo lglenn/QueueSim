@@ -1,20 +1,36 @@
 # vim: ts=2:sw=2
 
-MODULES := state ticker
+MODULES := state \
+	ticker \
+	random \
+	job \
+	assigner \
+	worker \
+	legend \
+	scatterchart \
+	barchart \
+	queuesim
 JS := $(addsuffix .js, $(addprefix js/, $(MODULES)))
-COFFEE := $(addsuffix .coffee, $(addprefix src/, $(MODULES)))
+BOILERPLATE := js/start.js js/end.js
+INDEX := js/index.js
+OUTFILE := queuesim.js
+
+all: $(OUTFILE)
+
+$(BOILERPLATE): js/%.js: boilerplate/%.js
+	cp $< $@
 
 js/%.js: src/%.coffee
-	coffee -o js -c $<
+	coffee --bare --output js -c $<
 
-js/index.js: $(JS)
-	if [[ -f "js/index.js" ]]; then rm js/index.js; fi
-	for m in $(MODULES); do echo "import \"$$m\"" >> js/index.js; done
+$(INDEX): $(JS) $(BOILERPLATE)
+	if [[ -f "$(INDEX)" ]]; then rm $(INDEX); fi
+	echo "import \"start\"" >> $(INDEX)
+	for m in $(MODULES); do echo "import \"$$m\"" >> $(INDEX); done
+	echo "import \"end\"" >> $(INDEX)
 
-worker.js: $(JS) js/index.js
-	./node_modules/.bin/smash js/index.js > worker.js
-
-all: worker.js
+$(OUTFILE): $(JS) $(INDEX)
+	./node_modules/.bin/smash $(INDEX) > $(OUTFILE)
 
 clean:
-	rm -rf worker.js js/*.js
+	rm -rf $(OUTFILE) js/*.js

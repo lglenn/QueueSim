@@ -1,3 +1,5 @@
-worker.js
+queuesim.js
 .node-version
+node_modules
 d3.v3*js
+js
