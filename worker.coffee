@@ -36,6 +36,7 @@ ticker = (λ) ->
 
   my.start = () ->
     my()
+    return my
 
   return my
 
@@ -123,9 +124,7 @@ State = (clock) ->
 hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
 business_days_to_hours = d3.scale.linear().domain([0,1]).range([0,8])
 
-λ = .125
-clock = ticker(100)
-clock.start()
+clock = ticker(100).start()
 
 now = (state) ->
   clock.time() - state.start_time()
