@@ -129,18 +129,19 @@ clock = ticker(100).start()
 now = (state) ->
   clock.time() - state.start_time()
 
-# Generates values from the exponential distribution with rate λ
-rand_exp = (λ) ->
-  Math.log(1-Math.random())/(-1 * λ)
+random =
 
-exponentially_distributed_value = (μ) ->
-  rand_exp(1/μ)
+  # Generates values from the exponential distribution with rate λ
+  exponential:
 
-scaled_rate = () ->
-  (μ) ->
-    Math.ceil(exponentially_distributed_value(μ))
+    with_rate: (λ) ->
+      Math.log(1-Math.random())/(-1 * λ)
 
-random_value = scaled_rate()
+    with_mean: (μ) ->
+      random.exponential.with_rate(1/μ)
+
+random_int = (μ) ->
+  Math.ceil(random.exponential.with_mean(μ))
 
 Job = () ->
   queued = null
@@ -191,7 +192,7 @@ assigner = (dispatch) ->
   mean_interval = 8
 
   my = () ->
-    interval = random_value(mean_interval)
+    interval = random_int(mean_interval)
     dispatch.newjob(interval)
     clock.setticktimeout(interval,my)
 
@@ -215,7 +216,7 @@ worker = (capacity,mean_size,state,dispatcher) ->
     if state.queue_length() > 0
       state.paused(null)
       job = state.dequeue_job()
-      job.size(random_value(mean_size))
+      job.size(random_int(mean_size))
       job.started(clock.time())
       state.queue_time(job.queue_time())
       dispatcher.started()
@@ -507,7 +508,7 @@ dispatch.on('params',
     # job size: person-hours
     # arrival rate: hours
     state = State(clock)
-    id = rand_exp(100)
+    id = random.exponential.with_mean(100)
     ρ = (mean_job_size * (1/mean_arrival_interval)) / team_capacity
 
     local_dispatch = d3.dispatch('update','started','finished','idle')
