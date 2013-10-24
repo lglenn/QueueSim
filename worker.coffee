@@ -39,19 +39,86 @@ ticker = (λ) ->
 
   return my
 
-counter = () ->
-  'count': 0
-  'total': 0
+State = (clock) ->
 
-newstate = () ->
-  'start_time': clock.time()
-  'queue': []
-  'paused': null
-  'job': null
-  'sizes': counter()
-  'arrivals': counter()
-  'queue_times': counter()
-  'system_times': counter()
+  counter = () ->
+   'count': 0
+   'total': 0
+
+  start_time = clock.time()
+  queue = []
+  paused = null
+  job = null
+  sizes = counter()
+  arrivals = counter()
+  queue_times = counter()
+  system_times = counter()
+ 
+  incr = (hash,t) ->
+    hash['count'] += 1
+    hash['total'] += t
+  
+  avg = (hash) ->
+    if hash['count'] is 0
+      0
+    else
+      hash['total']/hash['count']
+  
+  my = () ->
+ 
+  my.queue_length = () ->
+    queue.length
+
+  my.enqueue_job = () ->
+    queue.push(Job().new(clock.time()))
+
+  my.dequeue_job = () ->
+    queue.shift()
+
+  my.start_time = () ->
+    start_time
+
+  my.paused = (value) ->
+    return paused if !value?
+    paused = value
+
+  my.size = (size) ->
+    incr(sizes,size)
+
+  my.arrival = (time) ->
+    incr(arrivals,time)
+
+  my.queue_time = (time) ->
+    incr(queue_times,time)
+
+  my.system_time = (time) ->
+    incr(system_times,time)
+
+  my.finished = () ->
+    system_times['count']
+  
+  my.avg_job_size = () ->
+    avg(sizes)
+  
+  my.avg_queue_pct = () ->
+    my.avg_queue_time() / my.avg_system_time() * 100
+  
+  my.avg_queue_time = () ->
+    avg(queue_times)
+  
+  my.avg_system_time = () ->
+    avg(system_times)
+  
+  my.avg_arrival_rate = () ->
+    a = avg(arrivals)
+    if a == 0 then 0 else 1/a
+ 
+  my.avg_system_size = () ->
+    # Little's law: avg jobs in system = avg arrival rate * avg time in system
+    #                    L = λW
+    my.avg_arrival_rate() * my.avg_system_time()
+  
+  my
 
 hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
 business_days_to_hours = d3.scale.linear().domain([0,1]).range([0,8])
@@ -61,7 +128,7 @@ clock = ticker(100)
 clock.start()
 
 now = (state) ->
-  clock.time() - state['start_time']
+  clock.time() - state.start_time()
 
 # Generates values from the exponential distribution with rate λ
 rand_exp = (λ) ->
@@ -76,55 +143,50 @@ scaled_rate = () ->
 
 random_value = scaled_rate()
 
-avg = (hash) ->
-  if hash['count'] is 0
-    0
-  else
-    hash['total']/hash['count']
+Job = () ->
+  queued = null
+  started = null
+  size = 0
+  done = null
 
-incr = (hash,t) ->
-  hash['count'] += 1
-  hash['total'] += t
+  dur = (start,end) ->
+    (end - start)
+  
+  my = () ->
 
-dur = (start,end) ->
-  (end - start)
+  my.new = (start_time) ->
+    queued = start_time
+    my
 
-system_time = (job) ->
-  dur(job['queued'],job['done'])
+  my.size = (value) ->
+    return size if !value?
+    size = value
+    my
 
-process_time = (job) ->
-  dur(job['started'],job['done'])
+  my.started = (value) ->
+    return started if !value?
+    started = value
+    my
 
-queue_time = (job) ->
-  dur(job['queued'],job['started'])
+  my.done = (value) ->
+    return done if !value?
+    done = value
+    my
 
-queue_pct = (job) ->
-  (queue_time(job) / system_time(job)) * 100
+  my.system_time = () ->
+    dur(queued,done)
+    
+  my.process_time = () ->
+    dur(started,done)
+  
+  my.queue_time = () ->
+    dur(queued,started)
+  
+  my.queue_pct = () ->
+    (my.queue_time() / my.system_time()) * 100
 
-finished = (state) ->
-  state['system_times']['count']
-
-avg_job_size = (state) ->
-  avg(state['sizes'])
-
-avg_queue_pct = (state) ->
-  avg_queue_time(state) / avg_system_time(state) * 100
-
-avg_queue_time = (state) ->
-  avg(state['queue_times'])
-
-avg_system_time = (state) ->
-  avg(state['system_times'])
-
-avg_arrival_rate = (state) ->
-  a = avg(state['arrivals'])
-  if a == 0 then 0 else 1/a
-
-avg_system_size = (state) ->
-  # Little's law: avg jobs in system = avg arrival rate * avg time in system
-  #                    L = λW
-  avg_arrival_rate(state) * avg_system_time(state)
-
+  my
+  
 # Assign work at a given rate
 assigner = (dispatch) ->
   mean_interval = 8
@@ -146,22 +208,22 @@ worker = (capacity,mean_size,state,dispatcher) ->
   job = null
   myworker = () ->
     if job?
-      job['done'] = clock.time()
-      incr(state['system_times'],dur(job['queued'],job['done']))
-      incr(state['sizes'],job['size'])
+      job.done(clock.time())
+      state.system_time(job.system_time())
+      state.size(job.size())
       dispatcher.finished(job)
       job = null
-    if state['queue'].length > 0
-      state['paused'] = null
-      job = state['queue'].shift()
-      job['size'] = random_value(mean_size)
-      job['started'] = clock.time()
-      incr(state['queue_times'],dur(job['queued'],job['started']))
+    if state.queue_length() > 0
+      state.paused(null)
+      job = state.dequeue_job()
+      job.size(random_value(mean_size))
+      job.started(clock.time())
+      state.queue_time(job.queue_time())
       dispatcher.started()
-      t = (job['size'] / capacity)
+      t = (job.size() / capacity)
     else
       dispatcher.idle()
-      state['paused'] = 1
+      state.paused(1)
       t = 0
     clock.setticktimeout(t,myworker)
   myworker()
@@ -445,7 +507,7 @@ dispatch.on('params',
     # team capacity: person-hours of work / day
     # job size: person-hours
     # arrival rate: hours
-    state = newstate()
+    state = State(clock)
     id = rand_exp(100)
     ρ = (mean_job_size * (1/mean_arrival_interval)) / team_capacity
 
@@ -496,28 +558,28 @@ dispatch.on('params',
 
     dispatch.on("newjob.#{id}",
       (arrival) ->
-        state['queue'].push {'queued': clock.time()}
-        incr(state['arrivals'],arrival)
+        state.enqueue_job()
+        state.arrival(arrival)
         local_dispatch.update(state)
-        log "Do this one day job! Your queue is now #{state['queue'].length} deep.")
+        log "Do this one day job! Your queue is now #{state.queue_length()} deep.")
   
     local_dispatch.on('started.log',
       (job) ->
         local_dispatch.update(state)
-        log "Picking up a new job, and I have #{state['queue'].length} left in the queue!"
-        log "Average job size:       #{avg_job_size(state).toFixed(1)} hours."
-        log "Average lead time:      #{avg_system_time(state).toFixed(1)} hours."
-        log "Average jobs in system: #{avg_system_size(state).toFixed(1)}."
-        log "Average pct queue time: #{avg_queue_pct(state).toFixed(1)}%.")
+        log "Picking up a new job, and I have #{state.queue_length()} left in the queue!"
+        log "Average job size:       #{state.avg_job_size().toFixed(1)} hours."
+        log "Average lead time:      #{state.avg_system_time().toFixed(1)} hours."
+        log "Average jobs in system: #{state.avg_system_size().toFixed(1)}."
+        log "Average pct queue time: #{state.avg_queue_pct().toFixed(1)}%.")
   
     local_dispatch.on('update.barchart',
       () ->
         bc.datum(
           [
-            state['queue'].length
-            avg_system_size(state)
-            hours_to_business_days(avg_system_time(state))
-            hours_to_business_days(avg_job_size(state))
+            state.queue_length()
+            state.avg_system_size()
+            hours_to_business_days(state.avg_system_time())
+            hours_to_business_days(state.avg_job_size())
           ]
         )
         .call(bars))
@@ -525,27 +587,27 @@ dispatch.on('params',
     local_dispatch.on('finished.scatterchart',
       (job) ->
         sc.datum(
-          [ { 'x': hours_to_business_days(system_time(job)), 'y': queue_pct(job) / 100, 'r': hours_to_business_days(process_time(job)) } ]
+          [ { 'x': hours_to_business_days(job.system_time()), 'y': job.queue_pct() / 100, 'r': hours_to_business_days(job.process_time()) } ]
         )
         .call(scatter))
 
     local_dispatch.on('finished.legend',
       (job) ->
         leg.datum([
-          "Last job lead time: #{system_time(job).toFixed(1)} hours"
-          "% queue time: #{(queue_time(job)/system_time(job) * 100).toFixed(0)}%"
-          "Avg % queue time: #{avg_queue_pct(state).toFixed(0)}%"
-          "Jobs completed: #{finished(state)}"
-          "Total Cost of Delay: $#{(avg_system_time(state) * finished(state) * 100).toFixed(0)}"
+          "Last job lead time: #{job.system_time().toFixed(1)} hours"
+          "% queue time: #{(job.queue_time()/job.system_time() * 100).toFixed(0)}%"
+          "Avg % queue time: #{state.avg_queue_pct().toFixed(0)}%"
+          "Jobs completed: #{state.finished()}"
+          "Total Cost of Delay: $#{(state.avg_system_time() * state.finished() * 100).toFixed(0)}"
           "Elapsed time: #{hours_to_business_days(now(state)).toFixed(1)} business days"
         ])
         .call(lc))
 
     local_dispatch.on('finished.log',
       (job) ->
-        log "Finished job number #{finished(state)}! That job took #{process_time(job)} hours! It's been in the system for #{system_time(job)} hours, though. That's #{queue_pct(job).toFixed(0)}% queue time."
+        log "Finished job number #{state.finished()}! That job took #{job.process_time()} hours! It's been in the system for #{job.system_time()} hours, though. That's #{job.queue_pct().toFixed(0)}% queue time."
         local_dispatch.update(state))
   
     local_dispatch.on('idle.log',
       () ->
-         log "Nothing for me to do... guess I'll take a nap." unless state['paused']?))
+         log "Nothing for me to do... guess I'll take a nap." unless state.paused()?))
