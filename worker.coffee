@@ -586,6 +586,7 @@ dispatch.on('params',
 
     local_dispatch.on('finished.scatterchart',
       (job) ->
+        hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
         sc.datum(
           [ { 'x': hours_to_business_days(job.system_time()), 'y': job.queue_pct() / 100, 'r': hours_to_business_days(job.process_time()) } ]
         )
