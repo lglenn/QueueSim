@@ -1,10 +1,12 @@
-State = (clock) ->
+# timef parameter is a function which returns the
+# number of clock ticks since the world started.
+State = (timef) ->
 
   counter = () ->
    'count': 0
    'total': 0
 
-  start_time = clock.time()
+  start_time = timef()
   queue = []
   paused = null
   job = null
@@ -25,11 +27,14 @@ State = (clock) ->
   
   my = () ->
  
+  my.now = () ->
+    timef() - start_time
+
   my.queue_length = () ->
     queue.length
 
   my.enqueue_job = () ->
-    queue.push(Job().new(clock.time()))
+    queue.push(Job().new(timef()))
 
   my.dequeue_job = () ->
     queue.shift()

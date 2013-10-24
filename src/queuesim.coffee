@@ -1,4 +1,4 @@
-# Symbols:
+# Glossary:
 # ρ : capacity utilization
 # λ : average arrival rate
 
@@ -6,9 +6,6 @@ hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
 business_days_to_hours = d3.scale.linear().domain([0,1]).range([0,8])
 
 clock = ticker(100).start()
-
-now = (state) ->
-  clock.time() - state.start_time()
 
 random_int = (μ) ->
   Math.ceil(random.exponential.with_mean(μ))
@@ -28,7 +25,7 @@ dispatch.on('params',
     # team capacity: person-hours of work / day
     # job size: person-hours
     # arrival rate: hours
-    state = State(clock)
+    state = State(clock.time)
     id = random.exponential.with_mean(100)
     ρ = (mean_job_size * (1/mean_arrival_interval)) / team_capacity
 
@@ -49,7 +46,7 @@ dispatch.on('params',
       "#{d.toFixed(2)} days"
 
     log = (msg) ->
-      console.log "#{dateformat now(state)}: #{msg}"
+      console.log "#{dateformat state.now()}: #{msg}"
   
     d3.select('#viz').append('div')
       .attr('class','title')
@@ -121,7 +118,7 @@ dispatch.on('params',
           "Avg % queue time: #{state.avg_queue_pct().toFixed(0)}%"
           "Jobs completed: #{state.finished()}"
           "Total Cost of Delay: $#{(state.avg_system_time() * state.finished() * 100).toFixed(0)}"
-          "Elapsed time: #{hours_to_business_days(now(state)).toFixed(1)} business days"
+          "Elapsed time: #{hours_to_business_days(state.now()).toFixed(1)} business days"
         ])
         .call(lc))
 
