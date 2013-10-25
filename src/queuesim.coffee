@@ -2,10 +2,23 @@
 # ρ : capacity utilization
 # λ : average arrival rate
 
+width = 2000
+graph_width = 600
+graph_height = 300
+height = 400
+
+margin =
+  top: 20
+  right: 30
+  bottom: 20
+  left: 30
+
 hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
 business_days_to_hours = d3.scale.linear().domain([0,1]).range([0,8])
 
 clock = ticker(100).start()
+
+dispatch = d3.dispatch('params','newjob')
 
 random_int = (μ) ->
   Math.ceil(random.exponential.with_mean(μ))
@@ -17,8 +30,6 @@ d3.select("#params").selectAll('#go')
       mean_job_size = parseFloat(d3.select('#params').select('#mean_job_size').property('value')) * 8
       team_capacity = parseFloat(d3.select('#params').select('#team_capacity').property('value'))
       dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
-
-dispatch = d3.dispatch('params','newjob')
 
 dispatch.on('params',
   (team_capacity,mean_job_size,mean_arrival_interval) ->
@@ -37,11 +48,6 @@ dispatch.on('params',
 
     worker(team_capacity,mean_job_size,state,local_dispatch)
 
-    width = 2000
-    graph_width = 600
-    graph_height = 300
-    height = 400
-
     dateformat = (d) ->
       "#{d.toFixed(2)} days"
 
@@ -56,12 +62,6 @@ dispatch.on('params',
       .append("g")
       .attr("transform","translate(30,30)")
 
-    margin =
-      top: 20
-      right: 30
-      bottom: 20
-      left: 30
-
     bc = canvas.append('g').attr('transform',"translate(30,0)")
     sc = canvas.append('g').attr('transform',"translate(#{graph_width + 50},0)")
     leg = canvas.append('g').attr('transform',"translate(#{(graph_width + 50) * 2},0)")
@@ -75,9 +75,9 @@ dispatch.on('params',
     leg.datum([0,0,0,0]).call(lc)
 
     dispatch.on("newjob.#{id}",
-      (arrival) ->
+      (arrival_interval) ->
         state.enqueue_job()
-        state.arrival(arrival)
+        state.arrival(arrival_interval)
         local_dispatch.update(state)
         log "Do this one day job! Your queue is now #{state.queue_length()} deep.")
   
