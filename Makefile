@@ -28,8 +28,7 @@ js/%.js: src/%.coffee
 	coffee --bare --output js -c $<
 
 $(INDEX): $(JS) $(BOILERPLATE)
-	if [[ -f "$(INDEX)" ]]; then rm $(INDEX); fi
-	echo "import \"start\"" >> $(INDEX)
+	echo "import \"start\"" > $(INDEX)
 	for m in $(MODULES); do echo "import \"$$m\"" >> $(INDEX); done
 	echo "import \"end\"" >> $(INDEX)
 
