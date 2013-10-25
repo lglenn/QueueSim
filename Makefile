@@ -1,6 +1,7 @@
 # vim: ts=2:sw=2
 
-MODULES := state \
+MODULES := \
+  state \
 	ticker \
 	random \
 	job \
