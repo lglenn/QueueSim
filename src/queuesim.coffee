@@ -48,11 +48,8 @@ dispatch.on('params',
 
     worker(team_capacity,mean_job_size,state,local_dispatch)
 
-    dateformat = (d) ->
-      "#{d.toFixed(2)} days"
-
     log = (msg) ->
-      console.log "#{dateformat state.now()}: #{msg}"
+      console.log "day #{state.days().toFixed(1)}: #{msg}"
   
     d3.select('#viz').append('div')
       .attr('class','title')

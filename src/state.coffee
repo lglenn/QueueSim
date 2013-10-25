@@ -2,6 +2,8 @@
 # number of clock ticks since the world started.
 State = (timef) ->
 
+  days = d3.scale.linear().domain([0,24]).range([0,1])
+
   counter = () ->
    'count': 0
    'total': 0
@@ -29,6 +31,9 @@ State = (timef) ->
  
   my.now = () ->
     timef() - start_time
+
+  my.days = () ->
+    days(my.now())
 
   my.queue_length = () ->
     queue.length

@@ -7,7 +7,6 @@ ticker = (λ) ->
   queue = []
   ticks = 0
   scale = 1/λ
-  days = d3.scale.linear().domain([0,24]).range([0,1])
 
   tick = () ->
     job = queue.shift()
