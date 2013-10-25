@@ -17,6 +17,9 @@ OUTFILE := queuesim.js
 
 all: $(OUTFILE)
 
+node_modules: package.json
+	npm install
+
 $(BOILERPLATE): js/%.js: boilerplate/%.js
 	cp $< $@
 
@@ -29,7 +32,7 @@ $(INDEX): $(JS) $(BOILERPLATE)
 	for m in $(MODULES); do echo "import \"$$m\"" >> $(INDEX); done
 	echo "import \"end\"" >> $(INDEX)
 
-$(OUTFILE): $(JS) $(INDEX)
+$(OUTFILE): node_modules $(JS) $(INDEX)
 	./node_modules/.bin/smash $(INDEX) > $(OUTFILE)
 
 clean:
