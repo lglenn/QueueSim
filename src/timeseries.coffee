@@ -8,6 +8,10 @@ timeseries = () ->
     top: 20
     right: 20
     bottom: 20
+  y = d3.scale.linear()
+  x = d3.scale.linear()
+  yaxis = d3.svg.axis().scale(y).orient('left')
+  xaxis = d3.svg.axis().scale(x).orient('bottom')
 
   my = (selection) ->
     selection.each((d) ->
@@ -28,20 +32,17 @@ timeseries = () ->
      frame.append('g').attr('class','x axis')
      frame.append('g').attr('class','chart')
 
+     y.domain([0,y_max]).range([0,canvas.height])
+     x.domain([0,x_max]).range([0,canvas.width])
+
      svg.attr('height',height).attr('width',width)
 
      frame = svg.select('.frame')
-
-     y = d3.scale.linear().domain([0,y_max]).range([0,frame.height])
-     x = d3.scale.linear().domain([0,x_max]).range([0,frame.width])
-
-     yaxis = d3.svg.axis().scale(y).orient('left')
-     xaxis = d3.svg.axis().scale(x).orient('bottom')
 
      frame.select('.y.axis')
        .call(yaxis)
 
      frame.select('.x.axis')
-       .attr('transform',"translate(0,#{frame.height})")
+       .attr('transform',"translate(0,#{canvas.height})")
        .call(xaxis))
       
