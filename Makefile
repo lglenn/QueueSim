@@ -10,6 +10,7 @@ MODULES := \
 	legend \
 	scatterchart \
 	barchart \
+	timeseries \
 	queuesim
 JS := $(addsuffix .js, $(addprefix js/, $(MODULES)))
 BOILERPLATE := js/start.js js/end.js
