@@ -72,7 +72,7 @@ dispatch.on('params',
     bc.datum([0,0,0,0]).call(bars)
     sc.datum([]).call(scatter)
     leg.datum([0,0,0,0]).call(lc)
-    leads.datum(0).call(leadtime_chart)
+    leads.datum({x: 0, y: 0}).call(leadtime_chart)
 
     dispatch.on("newjob.#{id}",
       (arrival_interval) ->
@@ -92,7 +92,7 @@ dispatch.on('params',
   
     local_dispatch.on('finished.leadtimes',
       (job) ->
-        leads.datum(hours_to_business_days(job.system_time())).call(leadtime_chart))
+        leads.datum({ x: state.now(), y: hours_to_business_days(job.system_time())}).call(leadtime_chart))
         
     local_dispatch.on('update.barchart',
       () ->

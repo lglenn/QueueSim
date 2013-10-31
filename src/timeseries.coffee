@@ -18,8 +18,8 @@ timeseries = () ->
 
   line = d3.svg.line()
    .interpolate('basis')
-   .x((d,i) -> x(i))
-   .y((d,i) -> y(d))
+   .x((d) -> x(d.x))
+   .y((d) -> y(d.y))
 
   pointilize = (datum) ->
     points.push(datum)
@@ -31,7 +31,7 @@ timeseries = () ->
   my = (selection) ->
     selection.each((d) ->
 
-     data.push(pointilize(d))
+     data.push({ x: pointilize(d.x), y: d.y})
 
      canvas =
        height: height - margin.top - margin.bottom
@@ -69,7 +69,7 @@ timeseries = () ->
 
      frame = d3.select(this).select('.frame')
 
-     x.domain([0,xmax-1]).range([0,canvas.width])
+     x.domain([d.x - xmax, d.x + 1]).range([0,canvas.width])
      y.domain([0,ymax]).range([canvas.height,0])
 
      frame.select('.y.axis')
