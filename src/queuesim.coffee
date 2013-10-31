@@ -42,11 +42,11 @@ dispatch.on('params',
 
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
-    assigner(dispatch)
+    assigner(dispatch,clock.setticktimeout)
       .mean_interval(mean_arrival_interval)
       .call()
 
-    worker(team_capacity,mean_job_size,state,local_dispatch)
+    worker(team_capacity,mean_job_size,state,local_dispatch,clock.setticktimeout)
 
     log = (msg) ->
       console.log "day #{state.days().toFixed(1)}: #{msg}"
@@ -62,14 +62,17 @@ dispatch.on('params',
     bc = canvas.append('g').attr('transform',"translate(30,0)")
     sc = canvas.append('g').attr('transform',"translate(#{graph_width + 50},0)")
     leg = canvas.append('g').attr('transform',"translate(#{(graph_width + 50) * 2},0)")
+    leads = d3.select('body').append('div').attr('id','leadtimes')
 
     bars = barchart().height(graph_height).width(graph_width).margin(margin).labels(['Queue','Avg Jobs in System','Avg Lead Time','Avg Job Size'])
     scatter = scatterchart().height(graph_height).width(graph_width).margin(margin).fade_time(120)
     lc = legend().height(graph_height).width(graph_width/2).margin(margin)
+    leadtime_chart = timeseries().height(250).width(1000).ymax(20).xmax(1000)
 
     bc.datum([0,0,0,0]).call(bars)
     sc.datum([]).call(scatter)
     leg.datum([0,0,0,0]).call(lc)
+    leads.datum(0).call(leadtime_chart)
 
     dispatch.on("newjob.#{id}",
       (arrival_interval) ->
@@ -87,6 +90,10 @@ dispatch.on('params',
         log "Average jobs in system: #{state.avg_system_size().toFixed(1)}."
         log "Average pct queue time: #{state.avg_queue_pct().toFixed(1)}%.")
   
+    local_dispatch.on('finished.leadtimes',
+      (job) ->
+        leads.datum(hours_to_business_days(job.system_time())).call(leadtime_chart))
+        
     local_dispatch.on('update.barchart',
       () ->
         bc.datum(

@@ -1,0 +1,21 @@
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF8">
+    <script src="./d3.v3.js"></script>
+    <link rel="stylesheet" href="./queuesim.css" type="text/css">
+  </head>
+  <body>
+    <div id="viz"></div>
+    <script src="./js/timeseries.js"></script>
+    <script>
+      ts = timeseries().ymax(5).xmax(50).height(200).width(300)
+      poinger = function() { 
+        d3.select('#viz').datum(Math.random()).call(ts)
+        setTimeout(poinger,750)
+      }
+      poinger()
+    </script>
+  </body>
+</html>
+
+

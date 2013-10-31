@@ -8,7 +8,7 @@ State = (timef) ->
    'count': 0
    'total': 0
 
-  start_time = timef()
+  start_time = 0
   queue = []
   paused = null
   job = null
@@ -39,7 +39,7 @@ State = (timef) ->
     queue.length
 
   my.enqueue_job = () ->
-    queue.push(Job().new(timef()))
+    queue.push(Job().new(my.now()))
 
   my.dequeue_job = () ->
     queue.shift()

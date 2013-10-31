@@ -1,11 +1,11 @@
 # Assign work at a given rate
-assigner = (dispatch) ->
+assigner = (dispatch,cb) ->
   mean_interval = 8
 
   my = () ->
     interval = random_int(mean_interval)
     dispatch.newjob(interval)
-    clock.setticktimeout(interval,my)
+    cb(interval,my)
 
   my.mean_interval = (value) ->
     return mean_interval if !value?

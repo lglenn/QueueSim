@@ -1,9 +1,9 @@
 # Work at a given rate
-worker = (capacity,mean_size,state,dispatcher) ->
+worker = (capacity,mean_size,state,dispatcher,cb) ->
   job = null
   myworker = () ->
     if job?
-      job.done(clock.time())
+      job.done(state.now())
       state.system_time(job.system_time())
       state.size(job.size())
       dispatcher.finished(job)
@@ -12,7 +12,7 @@ worker = (capacity,mean_size,state,dispatcher) ->
       state.paused(null)
       job = state.dequeue_job()
       job.size(random_int(mean_size))
-      job.started(clock.time())
+      job.started(state.now())
       state.queue_time(job.queue_time())
       dispatcher.started()
       t = (job.size() / capacity)
@@ -20,6 +20,6 @@ worker = (capacity,mean_size,state,dispatcher) ->
       dispatcher.idle()
       state.paused(1)
       t = 0
-    clock.setticktimeout(t,myworker)
+    cb(t,myworker)
   myworker()
 
