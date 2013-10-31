@@ -92,7 +92,7 @@ dispatch.on('params',
   
     local_dispatch.on('finished.leadtimes',
       (job) ->
-        leads.datum({ x: state.now(), y: hours_to_business_days(job.system_time())}).call(leadtime_chart))
+        leads.datum({ x: hours_to_business_days(state.now()), y: hours_to_business_days(job.system_time())}).call(leadtime_chart))
         
     local_dispatch.on('update.barchart',
       () ->
