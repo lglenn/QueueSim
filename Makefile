@@ -41,3 +41,4 @@ clean:
 
 deepclean: clean
 	rm -rf ./node_modules
+	rm -rf js
