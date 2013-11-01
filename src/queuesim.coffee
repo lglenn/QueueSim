@@ -32,6 +32,9 @@ d3.select("#params").selectAll('#go')
       team_capacity = parseFloat(d3.select('#params').select('#team_capacity').property('value'))
       dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
 
+ass = assigner(dispatch,clock.setticktimeout)
+ass.call()
+
 dispatch.on('params',
   (team_capacity,mean_job_size,mean_arrival_interval) ->
     # team capacity: person-hours of work / day
@@ -43,10 +46,9 @@ dispatch.on('params',
 
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
-    assigner(dispatch,clock.setticktimeout)
+    ass
       .interarrival_time(random_int(mean_arrival_interval))
-      .size(random_int(mean_arrival_interval))
-      .call()
+      .size(random_int(mean_job_size))
 
     worker(team_capacity,mean_job_size,state,local_dispatch,clock.setticktimeout)
 
@@ -69,7 +71,7 @@ dispatch.on('params',
     bars = barchart().height(graph_height).width(graph_width).margin(margin).labels(['Queue','Avg Jobs in System','Avg Lead Time','Avg Job Size'])
     scatter = scatterchart().height(graph_height).width(graph_width).margin(margin).fade_time(120)
     lc = legend().height(graph_height).width(graph_width/2).margin(margin)
-    leadtime_chart = timeseries().height(250).width(1000).ymax(20).xmax(1000)
+    leadtime_chart = timeseries().height(250).width(1000).ymax(30).xmax(365)
 
     bc.datum([0,0,0,0]).call(bars)
     sc.datum([]).call(scatter)
