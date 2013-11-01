@@ -50,7 +50,7 @@ dispatch.on('params',
       .interarrival_time(random_int(mean_arrival_interval))
       .size(random_int(mean_job_size))
 
-    worker(team_capacity,mean_job_size,state,local_dispatch,clock.setticktimeout)
+    worker(team_capacity,state,local_dispatch,clock.setticktimeout)
 
     log = (msg) ->
       console.log "day #{state.days().toFixed(1)}: #{msg}"

@@ -1,5 +1,5 @@
 # Work at a given rate
-worker = (capacity,mean_size,state,dispatcher,cb) ->
+worker = (capacity,state,dispatcher,cb) ->
   job = null
   myworker = () ->
     if job?
