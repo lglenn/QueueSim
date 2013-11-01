@@ -38,3 +38,6 @@ $(OUTFILE): node_modules $(JS) $(INDEX)
 
 clean:
 	rm -rf $(OUTFILE) js/*.js
+
+deepclean: clean
+	rm -rf ./node_modules
