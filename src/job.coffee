@@ -9,7 +9,7 @@ Job = () ->
   
   my = () ->
 
-  my.new = (start_time) ->
+  my.start_time = (start_time) ->
     queued = start_time
     my
 

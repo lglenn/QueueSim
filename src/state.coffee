@@ -38,8 +38,8 @@ State = (timef) ->
   my.queue_length = () ->
     queue.length
 
-  my.enqueue_job = () ->
-    queue.push(Job().new(my.now()))
+  my.enqueue = (job) ->
+    queue.push(job)
 
   my.dequeue_job = () ->
     queue.shift()

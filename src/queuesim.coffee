@@ -21,7 +21,8 @@ clock = ticker(100).start()
 dispatch = d3.dispatch('params','newjob')
 
 random_int = (μ) ->
-  Math.ceil(random.exponential.with_mean(μ))
+  () ->
+    Math.ceil(random.exponential.with_mean(μ))
 
 d3.select("#params").selectAll('#go')
   .on("click",
@@ -43,7 +44,8 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     assigner(dispatch,clock.setticktimeout)
-      .mean_interval(mean_arrival_interval)
+      .interarrival_time(random_int(mean_arrival_interval))
+      .size(random_int(mean_arrival_interval))
       .call()
 
     worker(team_capacity,mean_job_size,state,local_dispatch,clock.setticktimeout)
@@ -75,8 +77,8 @@ dispatch.on('params',
     leads.datum({x: 0, y: 0}).call(leadtime_chart)
 
     dispatch.on("newjob.#{id}",
-      (arrival_interval) ->
-        state.enqueue_job()
+      (arrival_interval,size) ->
+        state.enqueue(Job().start_time(state.now()).size(size))
         state.arrival(arrival_interval)
         local_dispatch.update(state)
         log "Do this one day job! Your queue is now #{state.queue_length()} deep.")

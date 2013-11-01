@@ -11,7 +11,6 @@ worker = (capacity,mean_size,state,dispatcher,cb) ->
     if state.queue_length() > 0
       state.paused(null)
       job = state.dequeue_job()
-      job.size(random_int(mean_size))
       job.started(state.now())
       state.queue_time(job.queue_time())
       dispatcher.started()

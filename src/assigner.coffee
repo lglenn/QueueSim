@@ -1,15 +1,21 @@
 # Assign work at a given rate
 assigner = (dispatch,cb) ->
-  mean_interval = 8
+  interarrival_time = () -> 1
+  size = () -> 1
 
   my = () ->
-    interval = random_int(mean_interval)
-    dispatch.newjob(interval)
+    interval = interarrival_time()
+    dispatch.newjob(interval,size())
     cb(interval,my)
 
-  my.mean_interval = (value) ->
-    return mean_interval if !value?
-    mean_interval = value
-    my
+  my.interarrival_time = (f) ->
+    return interarrival_time if !f?
+    interarrival_time = f
+    return my
+
+  my.size = (f) ->
+    return size if !f?
+    size = f
+    return my
 
   my
