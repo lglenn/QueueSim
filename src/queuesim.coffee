@@ -1,6 +1,8 @@
 # Glossary:
 # ρ : capacity utilization
-# λ : average arrival rate
+# λ : rate
+# μ : mean
+# σ : standard deviation
 
 width = 2000
 graph_width = 600
@@ -20,7 +22,7 @@ clock = ticker(100).start()
 
 dispatch = d3.dispatch('params','newjob')
 
-random_int = (μ) ->
+random_value = (μ) ->
   () ->
     Math.ceil(random.exponential.with_mean(μ))
 
@@ -33,7 +35,7 @@ d3.select("#params").selectAll('#go')
       dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
 
 ass = assigner(dispatch,clock.setticktimeout)
-ass.call()
+ass()
 
 dispatch.on('params',
   (team_capacity,mean_job_size,mean_arrival_interval) ->
@@ -47,8 +49,8 @@ dispatch.on('params',
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
     ass
-      .interarrival_time(random_int(mean_arrival_interval))
-      .size(random_int(mean_job_size))
+      .interarrival_time(random_value(mean_arrival_interval))
+      .size(random_value(mean_job_size))
 
     worker(team_capacity,state,local_dispatch,clock.setticktimeout)
 
