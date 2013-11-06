@@ -24,14 +24,14 @@ legend = () ->
         .enter()
         .append('tr')
 
-      rows.selectAll('.label')
+      rows.selectAll('td.label')
         .data((d,i) -> labels[i])
         .enter()
         .append('td')
         .attr('class','label')
         .text((d) -> d)
 
-      datacells = rows.selectAll('.value')
+      datacells = rows.selectAll('td.value')
         .data((d) -> d)
 
       datacells
