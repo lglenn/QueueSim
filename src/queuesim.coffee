@@ -94,7 +94,7 @@ dispatch.on('params',
 
     bc.datum([0,0,0,0]).call(bars)
     sc.datum([]).call(scatter)
-    leg.datum([0,0,0,0]).call(lc)
+    leg.datum([0,0,0,0,0]).call(lc)
     leads.datum({x: 0, y: 0}).call(leadtime_chart)
 
     dispatch.on("newjob.#{id}",
