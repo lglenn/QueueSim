@@ -1,53 +1,55 @@
 legend = () ->
-  height = 0
-  width = 0
-  margin =
-    top: 20
-    right: 20
-    bottom: 20
-    left: 20
+
+  matrix = (list) ->
+    ([el] for el in list)
+
+  labels = matrix([])
+  units = []
 
   my = (selection) ->
     selection.each((d) ->
-      frame =
-        height: height - margin.top - margin.bottom
-        width: width - margin.left - margin.right
-      svg = d3.select(this).selectAll("svg").data([d])
-        .attr('height',height)
-        .attr('width',width)
-      svg.enter().append("svg").append("g")
-        .attr('class','frame')
-        .attr('height',frame.height)
-        .attr('width',frame.width)
-        .attr('transform',"translate(#{margin.left},#{margin.top})")
 
-      svg.select('.frame').selectAll('text')
-        .data(d)
+      table = d3.select(this)
+        .selectAll('table')
+        .data([d])
+
+      table
         .enter()
-        .append('svg:text')
-        .attr('y',(d,i) -> 50 + (i*20))
-        .attr('x',30)
-        .attr("text-anchor", "left")
-        .attr('class','legend')
+        .append('table')
 
-      svg.selectAll('text')
-        .text(String))
+      rows = table.selectAll('tr')
+        .data(matrix(d))
 
-  my.height = (value) ->
-    return height if !value?
-    height = value
-    my
+      rows
+        .enter()
+        .append('tr')
 
-  my.width = (value) ->
-    return width if !value?
-    width = value
-    my
+      rows.selectAll('.label')
+        .data((d,i) -> labels[i])
+        .enter()
+        .append('td')
+        .attr('class','label')
+        .text((d) -> d)
 
-  my.margin = (value) ->
-    return margin if !value?
-    margin = value
-    my
+      datacells = rows.selectAll('.value')
+        .data((d) -> d)
+
+      datacells
+        .enter()
+        .append('td')
+        .attr('class','value')
+      
+      datacells
+        .text((d,i,j) -> units[j](d)))
+
+  my.labels = (values) ->
+    return labels if !values?
+    labels = matrix(values)
+    return my
+
+  my.units = (values) ->
+    return units if !values?
+    units = values
+    return my
 
   return my
-  
-

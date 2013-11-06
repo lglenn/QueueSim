@@ -6,14 +6,10 @@
   </head>
   <body>
     <div id="viz"></div>
-    <script src="./js/timeseries.js"></script>
+    <script src="./js/legend.js"></script>
     <script>
-      ts = timeseries().ymax(5).xmax(50).height(200).width(300)
-      poinger = function() { 
-        d3.select('#viz').datum(Math.random()).call(ts)
-        setTimeout(poinger,750)
-      }
-      poinger()
+      leg = legend().labels(['a','b','France'])
+      d3.select('#viz').datum(0).call(leg)
     </script>
   </body>
 </html>
