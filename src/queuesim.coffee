@@ -29,9 +29,9 @@ random_value = (μ) ->
 d3.select("#params").selectAll('#go')
   .on("click",
     () ->
-      mean_arrival_interval = parseFloat(d3.select('#params').select('#mean_arrival_rate').property('value')) * 8
-      mean_job_size = parseFloat(d3.select('#params').select('#mean_job_size').property('value')) * 8
-      team_capacity = parseFloat(d3.select('#params').select('#team_capacity').property('value'))
+      mean_arrival_interval = parseFloat(d3.select('#params #mean_arrival_rate').property('value')) * 8
+      mean_job_size = parseFloat(d3.select('#params #mean_job_size').property('value')) * 8
+      team_capacity = parseFloat(d3.select('#params #team_capacity').property('value'))
       dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
 
 ass = assigner(dispatch,clock.setticktimeout)
