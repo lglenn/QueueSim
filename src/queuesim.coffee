@@ -67,17 +67,34 @@ dispatch.on('params',
 
     bc = canvas.append('g').attr('transform',"translate(30,0)")
     sc = canvas.append('g').attr('transform',"translate(#{graph_width + 50},0)")
-    leg = canvas.append('g').attr('transform',"translate(#{(graph_width + 50) * 2},0)")
+    leg = d3.select('body').append('div').attr('id','legend')
     leads = d3.select('body').append('div').attr('id','leadtimes')
 
     bars = barchart().height(graph_height).width(graph_width).margin(margin).labels(['Queue','Avg Jobs in System','Avg Lead Time','Avg Job Size'])
     scatter = scatterchart().height(graph_height).width(graph_width).margin(margin).fade_time(120)
-    lc = legend().height(graph_height).width(graph_width/2).margin(margin)
+          
+    labels = [
+      "Last job lead time"
+      "Last job % queue time"
+      "Avg % queue time"
+      "Jobs completed"
+      "Elapsed time"
+    ]
+
+    units = [
+      (s) -> "#{s} days"
+      (s) -> "#{s}%"
+      (s) -> "#{s}%"
+      (s) -> s
+      (s) -> "#{s} days"
+    ]
+
+    lc = legend().labels(labels).units(units)
     leadtime_chart = timeseries().height(250).width(1000).ymax(30).xmax(365)
 
     bc.datum([0,0,0,0]).call(bars)
     sc.datum([]).call(scatter)
-    leg.datum([0,0,0,0]).call(lc)
+    leg.datum([0,0,0,0,0]).call(lc)
     leads.datum({x: 0, y: 0}).call(leadtime_chart)
 
     dispatch.on("newjob.#{id}",
@@ -123,12 +140,11 @@ dispatch.on('params',
     local_dispatch.on('finished.legend',
       (job) ->
         leg.datum([
-          "Last job lead time: #{job.system_time().toFixed(1)} hours"
-          "% queue time: #{(job.queue_time()/job.system_time() * 100).toFixed(0)}%"
-          "Avg % queue time: #{state.avg_queue_pct().toFixed(0)}%"
-          "Jobs completed: #{state.finished()}"
-          "Total Cost of Delay: $#{(state.avg_system_time() * state.finished() * 100).toFixed(0)}"
-          "Elapsed time: #{hours_to_business_days(state.now()).toFixed(1)} business days"
+          hours_to_business_days(job.system_time()).toFixed(1)
+          (job.queue_time()/job.system_time() * 100).toFixed(0)
+          state.avg_queue_pct().toFixed(0)
+          state.finished()
+          hours_to_business_days(state.now()).toFixed(1)
         ])
         .call(lc))
 
