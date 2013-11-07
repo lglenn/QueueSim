@@ -32,7 +32,7 @@ d3.select("#params").selectAll('#go')
       field_val = (selector) ->
         parseFloat(d3.select(selector).property('value'))
       mean_arrival_interval = business_days_to_hours(1/field_val('#params #mean_arrival_rate'))
-      mean_job_size = field_val('#params #mean_job_size') * 8
+      mean_job_size = business_days_to_hours(field_val('#params #mean_job_size'))
       team_capacity = field_val('#params #team_capacity')
       dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
 
@@ -133,7 +133,6 @@ dispatch.on('params',
 
     local_dispatch.on('finished.scatterchart',
       (job) ->
-        hours_to_business_days = d3.scale.linear().domain([0,8]).range([0,1])
         sc.datum(
           [ { 'x': hours_to_business_days(job.system_time()), 'y': job.queue_pct() / 100, 'r': hours_to_business_days(job.process_time()) } ]
         )
