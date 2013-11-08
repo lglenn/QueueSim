@@ -26,15 +26,32 @@ random_value = (μ) ->
   () ->
     Math.ceil(random.exponential.with_mean(μ))
 
-d3.select("#params").selectAll('#go')
+ρ = (mean_job_size,mean_arrival_rate,capacity) ->
+  (mean_job_size * (mean_arrival_rate)) / capacity
+
+params = () ->
+    ret = {}
+    field_val = (selection) ->
+      parseFloat(selection.property('value'))
+    p = d3.select('#params')
+    ret['mean_arrival_interval'] = business_days_to_hours(1/field_val(p.select('#mean_arrival_rate')))
+    ret['mean_job_size'] = business_days_to_hours(field_val(p.select('#mean_job_size')))
+    ret['team_capacity'] = field_val(p.select('#team_capacity'))
+    ret
+
+d3.selectAll('#params [type=text]')
+  .on('change',
+    () ->
+      p = params()
+      d3.select('#params .ρ')
+        .datum(Math.round(ρ(p['mean_job_size'],1/p['mean_arrival_interval'],p['team_capacity']) * 100))
+        .text(String))
+
+d3.select('#params #go')
   .on("click",
     () ->
-      field_val = (selector) ->
-        parseFloat(d3.select(selector).property('value'))
-      mean_arrival_interval = business_days_to_hours(1/field_val('#params #mean_arrival_rate'))
-      mean_job_size = business_days_to_hours(field_val('#params #mean_job_size'))
-      team_capacity = field_val('#params #team_capacity')
-      dispatch.params(team_capacity,mean_job_size,mean_arrival_interval))
+      p = params()
+      dispatch.params(p['team_capacity'],p['mean_job_size'],p['mean_arrival_interval']))
 
 ass = assigner(dispatch,clock.setticktimeout)
 ass()
@@ -46,7 +63,6 @@ dispatch.on('params',
     # arrival rate: hours
     state = State(clock.time)
     id = random.exponential.with_mean(100)
-    ρ = (mean_job_size * (1/mean_arrival_interval)) / team_capacity
 
     local_dispatch = d3.dispatch('update','started','finished','idle')
 
@@ -61,7 +77,7 @@ dispatch.on('params',
   
     d3.select('#viz').append('div')
       .attr('class','title')
-      .text("#{Math.round(ρ * 100)}% Capacity Utilization")
+      .text("#{Math.round(ρ(mean_job_size,1/mean_arrival_interval,team_capacity) * 100)}% Capacity Utilization")
 
     canvas = d3.select("#viz").append('svg').attr('width',width).attr('height',height)
       .append("g")
